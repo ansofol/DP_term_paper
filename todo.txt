@@ -1,3 +1,5 @@
+How do credit constraints affect education choice?
+
 ----- TO DO -----
 
 -- Dates --
@@ -10,5 +12,7 @@
 -- Code --
 
 -- Data --
+Share of high/low education types X hiigh/low income (DST)
+Post tax wage X age profiles by education (DST)
 
 -- Write paper --
