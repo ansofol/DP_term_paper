@@ -39,6 +39,7 @@ def interp_linear_1d_scalar(grid,value,xi):
 @njit
 def interp_linear_1d(grid,value,xi):
 
+    
     yi = np.empty(xi.size)
 
     for ixi in range(xi.size):
