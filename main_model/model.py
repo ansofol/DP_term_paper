@@ -26,6 +26,10 @@ class Model():
         par.phi_high = 1
         par.phi_low = 0.1
 
+        # combined
+        par.theta = np.array([par.theta_high, par.theta_high, par.theta_low, par.theta_low])
+        par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
+
         # preferences
         par.rho = 2 # CRRA coefficient
         par.nu = 1 # inverse frisch
@@ -35,13 +39,20 @@ class Model():
         par.Smax = 5
 
         # income
-        par.lambda_vec = np.arange(par.Smax)+1
         par.sigma = 1 # or something
         # maybe education specific age profile here
         par.r = 1/par.beta - 1
 
         # time
         par.Tmax = 45
+
+        # grids
+        par.a_phi = 1.1
+        par.a_min = 0.0
+        par.a_max = 10
+        par.Na = 200
+
+        par.neps = 5
 
     def set_grids(self):
         
@@ -50,17 +61,13 @@ class Model():
 
         #### grids ###
         # assets
-        par.a_min = 0.0
-        par.a_max = 10
-        par.Na = 200
-        par.a_phi = 1.1
         par.a_grid = tools.nonlinspace(par.a_min, par.a_max, par.Na, par.a_phi)
 
         #### education ####
         par.S_grid = np.arange(par.Smax+1)
+        par.lambda_vec = np.arange(par.Smax+1)+1
 
         #### productivity shocks ####
-        par.neps = 5
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
 
         #### solution grids ####
