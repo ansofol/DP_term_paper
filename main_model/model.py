@@ -3,7 +3,7 @@ import scipy.optimize
 from types import SimpleNamespace
 import tools
 
-class model():
+class Model():
 
     def __init__(self):
         self.par = SimpleNamespace()
@@ -35,13 +35,13 @@ class model():
         par.Smax = 5
 
         # income
-        par.lambda_vec = np.range(par.Smax)+1
+        par.lambda_vec = np.arange(par.Smax)+1
         par.sigma = 1 # or something
         # maybe education specific age profile here
         par.r = 1/par.beta - 1
 
         # time
-        par.T_max = 45
+        par.Tmax = 45
 
     def set_grids(self):
         
@@ -69,4 +69,5 @@ class model():
         sol.ell = np.zeros(shape) + np.nan
         sol.ccp_work = np.zeros(shape) + np.nan
         sol.V = np.zeros(shape) + np.nan
+        sol.m = np.zeros(shape) + np.nan
         
