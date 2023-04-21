@@ -49,7 +49,7 @@ class Model():
         # grids
         par.a_phi = 1.1
         par.a_min = 0.0
-        par.a_max = 10
+        par.a_max = 1000
         par.Na = 200
 
         par.neps = 5
@@ -65,7 +65,7 @@ class Model():
 
         #### education ####
         par.S_grid = np.arange(par.Smax+1)
-        par.lambda_vec = np.arange(par.Smax+1)+1
+        par.lambda_vec = (np.arange(par.Smax+1)+1)*0.1
 
         #### productivity shocks ####
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 

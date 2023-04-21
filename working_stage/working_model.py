@@ -16,17 +16,16 @@ class WorkModel(Model):
         for t in range(par.Tmax-1, -1, -1):
             for i_type in range(par.Ntypes):
                 for i_S, S in enumerate(par.S_grid):
-                    for i_a,a in enumerate(par.a_grid):
-                        for i_eps, eps in enumerate(par.eps_grid):
-                            idx =(i_type,t,1,i_S,i_a,i_eps)
-                    
-                            if t == par.Tmax-1:
+
+                    if t == par.Tmax-1: # solve last period one state at a time
+                        for i_a,a in enumerate(par.a_grid):
+                            for i_eps, eps in enumerate(par.eps_grid):
+                                idx =(i_type,t,1,i_S,i_a,i_eps)
+                                
                                 # leave no assets
                                 #obj = lambda x: -self.util_last(x,wage,a)
                                 wage = self.wage_func(i_S,t,i_type,eps)
                                 res = self.solve_last(idx)
-                                
-                                assert res.success
 
                                 if res.success:
                                     ell = res.x
@@ -34,14 +33,14 @@ class WorkModel(Model):
 
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
-                                    print('success')
-                            else:
-                                # egm step
-                                pass
-
-                    #EGM step             
-                    wage_grid = self.wage_func(i_S, t, i_type, par.eps_grid)
-                    EGM.EGM_step(t, par, wage_grid, sol)
+                                    sol.m[idx] = a
+                                else:
+                                    print(f'Did not converge at {idx}')
+                                    # this becomes an issue if we allow for borrowing.
+                                    #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
+                    else:
+                        EGM.EGM_step(t, i_type, i_S, self)
+                        
 
                                 
 
@@ -49,18 +48,17 @@ class WorkModel(Model):
                                 
                     
 
-        # egm step
+    # solve last period
     def solve_last(self, idx):
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
         a = par.a_grid[i_a]
 
-        print(wage)
-
         obj = lambda x: -self.util_last(x,wage,a)
 
-        res = optimize.minimize(obj, x0=1e-8,method='nelder-mead')
+        res = optimize.minimize(obj, x0=1,method='nelder-mead', options={'maxiter':200})
+        #assert res.success
         return res
    
 
@@ -91,15 +89,12 @@ class WorkModel(Model):
                     bounds = ((0,np.inf),(0,np.inf))
 
                     # initial guess
-                    if solved:
-                        c0 = c
-                        ell0 = ell
-                    else:
-                        c0 = a/2 + 1e-8 # consume half of assets
-                        ell0 = wage_grid[i_eps]*c0 # work to finance consumption
+                    if not solved:
+                        c = a/2 + 1e-8 # consume half of assets
+                        ell = wage_grid[i_eps]*c # work to finance consumption
 
 
-                    res = optimize.minimize(obj, (1,1), 
+                    res = optimize.minimize(obj, (c,ell), 
                                             method='nelder-mead', 
                                             bounds=bounds)
                     print(res)
@@ -122,14 +117,21 @@ class WorkModel(Model):
 
     def util_work(self,c,ell):
         par = self.par
-        return (c**(1-par.rho))/(1-par.rho) - (ell**(1+par.nu))/(1+par.nu)
+
+        # impose penalty if lower bound is violated
+        penalty = 0
+        #if ell <= 0:
+        penalty += -1000*np.fmin(ell, 0)
+        #print('ell penalized')
+        #if c <= 0:
+        #print('c penalized')
+        penalty += -1000*np.fmin(c,0)
+
+        return (c**(1-par.rho))/(1-par.rho) - (ell**(1+par.nu))/(1+par.nu) - penalty
     
+
     def util_last(self, ell, w,a):
         c = ell*w+a
-
-        penalty = 0
-        if ell < 0:
-            penalty += abs(ell)*1000
         return np.array(self.util_work(c, ell))
     
     def marginal_util(self, c):
