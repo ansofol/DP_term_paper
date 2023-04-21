@@ -46,6 +46,7 @@ leave assets after the terminal period. For now, everything is just consumed.
 ------ Step 1
 Solve working stage model:
 - EGM with 2 choices, productivity shock to labor
+- budget constraint 
 
 Solve study stage model:
 - just do it all at once
