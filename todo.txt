@@ -19,6 +19,19 @@ Post tax wage X age profiles by education (DST)
 
 
 
+------------- Issues:
+
+---- Problem with negative assets in last period
+When we allow for negative assets in the final period, the solver
+will sometimes not converge - seemingly at random. This gives us some
+holes in the last period policy functions. If we risk ending up with 
+negative assets in last period, we should fix this. Either:
+- Use better solver, try different starting values etc.
+- Interpolate over holes (lazy solution)
+
+---- Retirement value
+I'm having trouble with solving the model when there is incentive to
+leave assets after the terminal period. For now, everything is just consumed.
 
 
 
@@ -26,16 +39,14 @@ Post tax wage X age profiles by education (DST)
 ------------- Plan:
 
 ------ Step 0:
-- Utility function (CRRA)
+- Utility function (CRRA) 
 - Return to education + cognitive type (Abbott paper)
-- Retirement value (Keane)
 
 
 ------ Step 1
 Solve working stage model:
-- EGM 1 choice variable (exogenous labour supply), no uncertainty
-- EGM with 2 choices, no uncertainty
 - EGM with 2 choices, productivity shock to labor
+- budget constraint 
 
 Solve study stage model:
 - just do it all at once
