@@ -26,7 +26,7 @@ class study_model():
         par.SU = 1.0
         par.beta = 0.99
         par.rho = 1.5
-        par.sigma = 0.05 # Taste shocks: Primary discountinuities, income shokcs: secoundary shocks - read the paper again :))
+        par.sigma = 0.2 # Taste shocks: Primary discountinuities, income shokcs: secoundary shocks - read the paper again :))
 
         if full_model == False: 
             par.income_work = [(x*(par.s_max-s))/10 for x,s in zip(1+np.arange(par.s_max), np.arange(par.s_max))]

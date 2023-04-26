@@ -71,3 +71,4 @@ class Model():
         sol.V = np.zeros(shape) + np.nan
         sol.m = np.zeros(shape) + np.nan
         
+
