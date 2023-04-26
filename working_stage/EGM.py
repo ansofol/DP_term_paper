@@ -1,5 +1,6 @@
 import tools
 import numpy as np
+from scipy import optimize
 
 def EGM_step(t,i_type,i_S,model):
     
@@ -46,6 +47,19 @@ def EGM_step(t,i_type,i_S,model):
             m_now = a - wage*ell_now + c_now
 
             # check borrowing constraint
+            if m_now < 0:
+                m_now = 0
+
+                # Intra-temp FOC must still hold
+                intra_FOC = lambda c: (1+par.r)*a + wage*((wage*c**(-par.rho))**(1/par.nu)) - c
+                root = optimize.root_scalar(intra_FOC, bracket=(1e-12, 20000), x0=a)
+                assert root.converged
+                c_now = root.root
+                ell_now = (wage*c_now**(-par.rho))**(1/par.nu)
+
+                # this bracket is bad but oh well
+                
+
 
             # store solutions
             c_endo[i_a] = c_now
