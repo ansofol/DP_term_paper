@@ -80,6 +80,17 @@ def EGM_step(t,i_type,i_S,model):
         sol.ell[i_type, t, 1, i_S, :, i_eps] = ell_exo #tools.interp_linear_1d(m_endo, ell_endo, (1+par.r)*par.a_grid)
         sol.a[i_type, t, 1, i_S, :, i_eps] = a_exo
 
+        # compute value function
+        for i_a, a in enumerate(par.a_grid):
+            v_next_vec = sol.V[i_type, t+1, 1, i_S, :, :]
+            EV_next = v_next_vec@par.eps_w
+            v_next_interp = interpolate.RegularGridInterpolator([par.a_grid], EV_next, 
+                                                                method='linear', bounds_error=False, fill_value=None)
+            a_next = (1+par.r)*a_exo[i_a]+1e-8
+            v_next = v_next_interp([a_next])
+            sol.V[i_type, t, 1, i_S, i_a, :] = v_next
+
+
         #sol.c[i_type, t, 1, i_S, :, i_eps] = c_endo
         #sol.ell[i_type, t, 1, i_S, :, i_eps] = ell_endo
         #sol.m[i_type, t, 1, i_S, :, i_eps] =  m_endo

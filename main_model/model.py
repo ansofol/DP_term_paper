@@ -77,4 +77,5 @@ class Model():
         sol.ccp_work = np.zeros(shape) + np.nan
         sol.V = np.zeros(shape) + np.nan
         sol.m = np.zeros(shape) + np.nan
+        sol.a = np.zeros(shape) + np.nan
         
