@@ -3,7 +3,7 @@ from numba import njit, int64, double, boolean, int32,void
 import math
 
 # interpolation functions:
-@njit(int64(int64,int64,double[:],double))
+#@njit(int64(int64,int64,double[:],double))
 def binary_search(imin,Nx,x,xi):
         
     # a. checks
@@ -36,7 +36,7 @@ def interp_linear_1d_scalar(grid,value,xi):
     # c. interpolate
     return value[ix] + rel_x * (value[ix+1]-value[ix])
 
-@njit
+#@njit
 def interp_linear_1d(grid,value,xi):
 
     yi = np.empty(xi.size)
@@ -45,7 +45,7 @@ def interp_linear_1d(grid,value,xi):
 
         # c. interpolate
         yi[ixi] = interp_linear_1d_scalar(grid,value,xi[ixi])
-    
+
     return yi
 
 @njit(double(double[:],double[:],double[:,:],double,double,int32,int32),fastmath=True)

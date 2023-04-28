@@ -33,7 +33,8 @@ class WorkModel(Model):
 
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
-                                    sol.m[idx] = a
+                                    sol.a[idx] = 0
+                                    sol.V[idx] = self.util_work(c, ell)
                                 else:
                                     print(f'Did not converge at {idx}')
                                     # this becomes an issue if we allow for borrowing.
