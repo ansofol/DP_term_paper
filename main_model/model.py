@@ -33,7 +33,7 @@ class Model():
         # preferences
         par.rho = 2 # CRRA coefficient
         par.nu = 1 # inverse frisch
-        par.beta = 0.98
+        par.beta = 0.9
 
         # education
         par.Smax = 5
@@ -41,7 +41,7 @@ class Model():
         # income
         par.sigma = 1 # or something
         # maybe education specific age profile here
-        par.r = 1/par.beta - 1
+        par.r = 1 #1/par.beta - 1
 
         # time
         par.Tmax = 45
@@ -51,6 +51,7 @@ class Model():
         par.a_min = 0.0
         par.a_max = 1000
         par.Na = 200
+        par.Ba = 10
 
         par.neps = 5
 
@@ -71,12 +72,12 @@ class Model():
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
 
         #### solution grids ####
-        shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na, par.neps)
+        shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na + par.Ba, par.neps)
         sol.c = np.zeros(shape) + np.nan
         sol.ell = np.zeros(shape) + np.nan
         sol.ccp_work = np.zeros(shape) + np.nan
         sol.V = np.zeros(shape) + np.nan
-        sol.m = np.zeros(shape) + np.nan
+        sol.m = np.zeros(shape)
         sol.a = np.zeros(shape) + np.nan
         
 
