@@ -57,6 +57,7 @@ class Model():
         par.a_min = 1e-16
         par.a_max = 1000
         par.Na = 200
+        par.Ba = 10
 
         par.neps = 5
 
@@ -77,7 +78,7 @@ class Model():
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
 
         #### solution grids ####
-        shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na, par.neps)
+        shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na + par.Ba, par.neps)
         sol.c = np.zeros(shape) + np.nan
         sol.ell = np.zeros(shape) + np.nan
         sol.ccp_work = np.zeros(shape) + np.nan
@@ -95,9 +96,9 @@ class Model():
                     for i_k in range(2): 
                         for i_j in range(par.Smax+1):
                             for i_eps in range(par.neps):
-                                sol.m[i_z,t,i_k,i_j,:,i_eps] = (1+par.r)*par.a_grid
-                                sol.c[:,t] = sol.m[:,t] 
-                                sol.V[:,t]= util(sol.c[:,t,:,:,:,:],par)
+                                sol.m[i_z,t,i_k,i_j,1:,i_eps] = (1+par.r)*par.a_grid
+                                sol.c[i_z,t,i_k,i_j,1:,i_eps] = sol.m[i_z,t,i_k,i_j,1:,i_eps]
+                                sol.V[i_z,t,i_k,i_j,1:,i_eps]= util(sol.c[i_z,t,i_k,i_j,1:,i_eps],par)
             else: 
                 EGM(t,sol,par)
             if t < par.Smax:
