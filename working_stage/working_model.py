@@ -20,7 +20,7 @@ class WorkModel(Model):
                     if t == par.Tmax-1: # solve last period one state at a time
                         for i_a,a in enumerate(par.a_grid):
                             for i_eps, eps in enumerate(par.eps_grid):
-                                idx =(i_type,t,1,i_S,i_a,i_eps)
+                                idx =(i_type,t,1,i_S,par.Ba+i_a,i_eps)
                                 
                                 # leave no assets
                                 #obj = lambda x: -self.util_last(x,wage,a)
@@ -34,6 +34,7 @@ class WorkModel(Model):
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
                                     sol.a[idx] = 0
+                                    sol.m[idx] = a
                                     sol.V[idx] = self.util_work(c, ell)
                                 else:
                                     print(f'Did not converge at {idx}')
@@ -41,6 +42,7 @@ class WorkModel(Model):
                                     #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
                     else:
                         EGM.EGM_step(t, i_type, i_S, self)
+                        
                         
 
                                 
@@ -54,7 +56,7 @@ class WorkModel(Model):
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
-        a = par.a_grid[i_a]
+        a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
 
         obj = lambda x: -self.util_last(x,wage,a)
 
