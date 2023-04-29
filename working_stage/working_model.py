@@ -26,11 +26,13 @@ class WorkModel(Model):
                                 # leave no assets
                                 #obj = lambda x: -self.util_last(x,wage,a)
                                 wage = self.wage_func(i_S,t,i_type,eps)
-                                res = self.solve_last(idx)
+                                res = self.solve_last_v(idx)
+
+                                assert res.success
 
                                 if res.success:
-                                    ell = res.x
-                                    c = wage*ell + a
+                                    c, ell = res.x
+                                    #c = wage*ell + a
 
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
@@ -85,54 +87,6 @@ class WorkModel(Model):
             MU = self.marginal_util(c_interp)
             EMU += MU*par.eps_w[ii_eps]
         return EMU
-   
-
-    def solve_last_wrong(self, i_type):
-
-        par = self.par
-        sol = self.sol
-
-        
-
-        for i_S, S in enumerate(par.S_grid):
-            wage_grid = self.wage_func(i_S, -1, par.theta[i_type],par.eps_grid)
-
-            solved = False
-
-            for i_a, a in enumerate(par.a_grid):
-                for i_eps, eps in enumerate(par.eps_grid):
-
-                    idx = (i_type, -1, 1, i_S, i_a, i_eps)
-                    
-                    # objective function
-                    obj = lambda x: -self.value_of_choice_last(x[0], x[1], a, wage_grid[i_eps])
-
-                    # borrowing constraint
-                    #bc = lambda x: (1+par.r)*a + wage_grid[i_S]*x[1] - x[0] 
-                    #constraint = {'fun':bc, 'type':'ineq'}
-
-                    bounds = ((0,np.inf),(0,np.inf))
-
-                    # initial guess
-                    if not solved:
-                        c = a/2 + 1e-8 # consume half of assets
-                        ell = wage_grid[i_eps]*c # work to finance consumption
-
-
-                    res = optimize.minimize(obj, (c,ell), 
-                                            method='nelder-mead', 
-                                            bounds=bounds)
-                    print(res)
-
-                    if res.success:
-                        solved = True
-                        sol.c[idx] = c = res.x[0]
-                        sol.ell[idx] = ell = res.x[1]
-                    #sol.a[idx] = a - sol.c[idx]
-                    
-                    
-
-
             
             
 
@@ -170,6 +124,32 @@ class WorkModel(Model):
         
     def retire_value(self, a):
         par = self.par
-        return a**0.5 #fill out something better here
+        v = np.zeros(a.shape)
+        v[a >= 0] = (a[a>=0]**0.5)
+        v[a<0] = 0
+        return v
     
+    def util_last_v(self, c, ell, w, a):
+        par = self.par
 
+        u = self.util_work(c, ell)
+        m_next = (a + w*ell- c)*(1+par.r)
+
+        # penalty for violating budget constraint
+        penalty = np.zeros(m_next.shape)
+        penalty -= 100*np.fmin(0, m_next)
+
+        return u + par.beta*self.retire_value(m_next) - penalty
+
+    # solve last period
+    def solve_last_v(self, idx):
+        par = self.par
+        i_type,t,_,i_S,i_a,i_eps = idx
+        wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
+        a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
+
+        obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
+
+        res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
+        #assert res.success
+        return res
