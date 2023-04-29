@@ -41,7 +41,7 @@ class Model():
         # income
         par.sigma = 1 # or something
         # maybe education specific age profile here
-        par.r = 1 #1/par.beta - 1
+        par.r = 1/par.beta - 1
 
         # time
         par.Tmax = 45

@@ -4,6 +4,7 @@ sys.path.append('../main_model')
 from model import Model
 import EGM
 from scipy import optimize
+import tools
 
 class WorkModel(Model):
     pass
@@ -63,6 +64,27 @@ class WorkModel(Model):
         res = optimize.minimize(obj, x0=1,method='nelder-mead', options={'maxiter':200})
         #assert res.success
         return res
+    
+    def exp_MU(self, i_type,t,i_work,i_S,i_a):
+        """
+        Expected marginal utility in period t (quadrature over epsilon shocks)
+        """
+        par = self.par
+        sol = self.sol
+        EMU = 0
+        for ii_eps, eps in enumerate(par.eps_grid):
+            if i_work == 1: 
+                m_next_grid = sol.m[i_type, t, 1,i_S,par.Ba:,ii_eps] # next period beginning of state assets
+                c_next_grid = sol.c[i_type, t,1,i_S,par.Ba:,ii_eps] # next period consumption
+            else:
+                m_next_grid = sol.m[i_type, t,0,i_S,:,ii_eps] # next period beginning of state assets
+                c_next_grid = sol.c[i_type, t,0,i_S,:,ii_eps] # next period consumption
+
+            m_next = (1+par.r)*par.a_grid[i_a]
+            c_interp = tools.interp_linear_1d_scalar(m_next_grid, c_next_grid, m_next)
+            MU = self.marginal_util(c_interp)
+            EMU += MU*par.eps_w[ii_eps]
+        return EMU
    
 
     def solve_last_wrong(self, i_type):
