@@ -107,10 +107,12 @@ def EGM_DC(i,t,sol,par):
         sol.c[i,t,0,t,par.Ba:,0] = c
         sol.m[i,t,0,t,par.Ba:,0] = m 
         sol.V[i,t,0,t,par.Ba:,0] = V
+        sol.ccp_work[i,t,0,t,par.Ba:,0] = ccp[1]
 
         sol.c[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
         sol.m[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
         sol.V[i,t,0,t,:par.Ba,0] = value_of_choice_study(sol.m[i,t,0,t,:par.Ba,0] ,sol.c[i,t,0,t,:par.Ba,0] , i, t, sol, par)
+        sol.ccp_work[i,t,0,t,:par.Ba,0] = value_of_choice_study(sol.m[i,t,0,t,:par.Ba,0] ,sol.c[i,t,0,t,:par.Ba,0] , i, t, sol, par,probability= True)
 
 
 
@@ -129,7 +131,7 @@ def wage_func(i_S, t, theta, eta, par):
 def marg_u(c,par): 
     return c**(-par.rho)
 
-def value_of_choice_study(m,c,type,t,sol,par): 
+def value_of_choice_study(m,c,type,t,sol,par, probability = False): 
     a = m-c 
 
     V_next_work = 0
@@ -145,7 +147,10 @@ def value_of_choice_study(m,c,type,t,sol,par):
 
     m_next = (1+par.r)*a + transfer(type,par)
 
-    V_next_study = tools.interp_linear_1d_scalar(sol.m[type,t+1,0,t+1,:,0],sol.V[type,t+1,0,t+1,:,0],m_next)
+    try:
+        V_next_study = tools.interp_linear_1d_scalar(sol.m[type,t+1,0,t+1,:,0],sol.V[type,t+1,0,t+1,:,0],m_next)
+    except: 
+        V_next_study = tools.interp_linear_1d(sol.m[type,t+1,0,t+1,:,0],sol.V[type,t+1,0,t+1,:,0],m_next)
     
     # Choice probabilities 
     V = np.array([V_next_study,V_next_work])
@@ -153,6 +158,11 @@ def value_of_choice_study(m,c,type,t,sol,par):
     V_max = V.max(axis=0) 
 
     log_sum = V_max + par.sigma_taste*np.log((np.sum(np.exp((V-V_max)/par.sigma_taste),axis=0)))
+
+    ccp = np.exp((V-log_sum)/par.sigma_taste)
+
+    if probability: 
+        return ccp[1] 
 
     return util(c,par) + par.beta*log_sum
 
