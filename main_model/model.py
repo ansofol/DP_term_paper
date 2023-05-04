@@ -22,8 +22,8 @@ class Model():
         par.Ntypes = 4
 
         # cognitive types
-        par.theta_high = 2
-        par.theta_low = 1.5
+        par.theta_high = 2/3*100
+        par.theta_low = 1/3*100
 
         # transfer types
         par.phi_high = 1
@@ -34,9 +34,11 @@ class Model():
         par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
 
         # preferences
-        par.rho = 2 # CRRA coefficient
-        par.nu = 1 # inverse frisch
-        par.beta = 0.98
+        par.rho = 1.5 # CRRA coefficient
+        par.nu = 3 # inverse frisch
+        par.beta = 0.4
+        par.vartheta = 0.0415
+        
 
         # Extreme value type one distribution 
         par.sigma_taste = 1
@@ -47,7 +49,8 @@ class Model():
         # income
         par.sigma = 1 # or something
         # maybe education specific age profile here
-        par.r = 1/par.beta - 1
+        #par.r = 1/par.beta - 1
+        par.r = 0.0
 
         # time
         par.Tmax = 10
@@ -72,7 +75,9 @@ class Model():
 
         #### education ####
         par.S_grid = np.arange(par.Smax+1)
-        par.lambda_vec = (np.arange(par.Smax+1)+1)*0.1
+        par.lambda_vec = - tools.nonlinspace(-0.797, 0 , par.Smax+1, 1.03)
+        #par.lambda_vec = np.append(0,par.lambda_vec)
+        par.lambda_vec = np.sort(par.lambda_vec)
 
         #### productivity shocks ####
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
@@ -160,7 +165,7 @@ class Model():
         #print('c penalized')
         penalty += -1000*np.fmin(c,0)
 
-        return (c**(1-par.rho))/(1-par.rho) - (ell**(1+par.nu))/(1+par.nu) - penalty
+        return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu) - penalty
     
 
     def util_last(self, ell, w,a):
