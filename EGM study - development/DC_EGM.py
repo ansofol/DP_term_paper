@@ -110,7 +110,7 @@ def EGM_DC(i,t,sol,par):
 
         sol.c[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
         sol.m[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
-        sol.V[i,t,0,t,:par.Ba,0] = value_of_choice_working(sol.m[i,t,0,t,:par.Ba,0] ,sol.c[i,t,0,t,:par.Ba,0] , i, t, t, sol, par)
+        sol.V[i,t,0,t,:par.Ba,0] = value_of_choice_working(sol.m[i,t,0,t,:par.Ba,0] ,sol.c[i,t,0,t,:par.Ba,0] , i, t, sol, par)
 
 
 

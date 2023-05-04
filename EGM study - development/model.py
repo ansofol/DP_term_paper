@@ -55,8 +55,8 @@ class Model():
         # grids
         par.a_phi = 1.1
         par.a_min = 1e-16
-        par.a_max = 1000
-        par.Na = 200
+        par.a_max = 100
+        par.Na = 100
         par.Ba = 10
 
         par.neps = 5
@@ -96,9 +96,9 @@ class Model():
                     for i_k in range(2): 
                         for i_j in range(par.Smax+1):
                             for i_eps in range(par.neps):
-                                sol.m[i_z,t,i_k,i_j,1:,i_eps] = (1+par.r)*par.a_grid
-                                sol.c[i_z,t,i_k,i_j,1:,i_eps] = sol.m[i_z,t,i_k,i_j,1:,i_eps]
-                                sol.V[i_z,t,i_k,i_j,1:,i_eps]= util(sol.c[i_z,t,i_k,i_j,1:,i_eps],par)
+                                sol.m[i_z,t,i_k,i_j,:,i_eps] = (1+par.r)*tools.nonlinspace(par.a_min, par.a_max, par.Na + par.Ba, par.a_phi)
+                                sol.c[i_z,t,i_k,i_j,:,i_eps] = sol.m[i_z,t,i_k,i_j,:,i_eps]
+                                sol.V[i_z,t,i_k,i_j,:,i_eps]= util(sol.c[i_z,t,i_k,i_j,:,i_eps],par)
             else: 
                 EGM(t,sol,par)
             if t < par.Smax:

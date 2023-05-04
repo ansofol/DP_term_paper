@@ -18,9 +18,9 @@ def EGM(t,sol,par): # Help EGM - not to be used in the model
             # Should be vectorized 
                 m_next = (1+par.r)*par.a_grid 
                     
-                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,s,:,eps],sol.V[i,t+1,1,s,:,eps],m_next)*par.eps_w[eps]
+                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,s,par.Ba:,eps],sol.V[i,t+1,1,s,par.Ba:,eps],m_next)*par.eps_w[eps]
 
-                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,s,:,eps],sol.c[i,t+1,1,s,:,eps],m_next)
+                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,s,par.Ba:,eps],sol.c[i,t+1,1,s,par.Ba:,eps],m_next)
 
                 E_margu_work += marg_u(c_next, par)*par.eps_w[eps]
 
@@ -29,9 +29,19 @@ def EGM(t,sol,par): # Help EGM - not to be used in the model
             m = (par.a_grid + c)[:,np.newaxis] - par.eps_grid
             V = util(c,par) + par.beta*V_next_work
 
-            sol.c[i,t,1,s,:,:] = c[:, np.newaxis]
-            sol.m[i,t,1,s,:,:] = m 
-            sol.V[i,t,1,s,:,:] = V[:, np.newaxis] 
+            
+
+            sol.c[i,t,1,s,par.Ba:,:] = c[:, np.newaxis]
+            sol.m[i,t,1,s,par.Ba:,:] = m   
+            sol.V[i,t,1,s,par.Ba:,:] = V[:, np.newaxis] 
+
+            sol.c[i,t,1,s,:par.Ba,:] = np.linspace(1e-16,m[0,:]-1e-16,par.Ba)
+            sol.m[i,t,1,s,:par.Ba,:] = np.linspace(1e-16,m[0,:]-1e-16,par.Ba)
+
+            for i_eps in range(par.neps):
+                sol.V[i,t,1,s,:par.Ba,i_eps] = value_of_choice_working2(sol.m[i,t,1,s,:par.Ba,i_eps] , sol.c[i,t,1,s,:par.Ba,i_eps] , i, t, s, sol, par)
+
+
 
         
 
@@ -53,21 +63,24 @@ def EGM_DC(t,sol,par):
                 # Should be vectorized 
                 m_next = (1+par.r)*par.a_grid 
                 
-                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,t+1,:,eps],sol.V[i,t+1,1,t+1,:,eps],m_next)*par.eps_w[eps]
+                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,t+1,par.Ba:,eps],sol.V[i,t+1,1,t+1,par.Ba:,eps],m_next)*par.eps_w[eps]
 
-                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,t+1,:,eps],sol.c[i,t+1,1,t+1,:,eps],m_next)
+                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,t+1,par.Ba:,eps],sol.c[i,t+1,1,t+1,par.Ba:,eps],m_next)
 
                 E_margu_work += marg_u(c_next, par)*par.eps_w[eps]
 
             c = (par.beta*(1+par.r)*E_margu_work)**(1/-par.rho)
-            m = par.a_grid + c
+            m = par.a_grid + c 
             V = util(c,par) + par.beta*V_next_work
 
+            sol.c[i,t,0,t,par.Ba:,0] = c
+            sol.m[i,t,0,t,par.Ba:,0] = m 
+            sol.V[i,t,0,t,par.Ba:,0] = V
 
+            sol.c[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
+            sol.m[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
+            sol.V[i,t,0,t,:par.Ba,0] = value_of_choice_working(sol.m[i,t,0,t,:par.Ba,0] , sol.c[i,t,0,t,:par.Ba,0] , i, t, t, sol, par)
 
-            sol.c[i,t,0,t,:,0] = c
-            sol.m[i,t,0,t,:,0] = m 
-            sol.V[i,t,0,t,:,0] = V
             
         else: # Can continue to study
     
@@ -76,19 +89,19 @@ def EGM_DC(t,sol,par):
                 # Should be vectorized 
                 m_next = (1+par.r)*par.a_grid 
                 
-                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,t+1,:,eps],sol.V[i,t+1,1,t+1,:,eps],m_next)*par.eps_w[eps]
+                V_next_work += tools.interp_linear_1d(sol.m[i,t+1,1,t+1,par.Ba:,eps],sol.V[i,t+1,1,t+1,par.Ba:,eps],m_next)*par.eps_w[eps]
 
-                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,t+1,:,eps],sol.c[i,t+1,1,t+1,:,eps],m_next)
+                c_next =  tools.interp_linear_1d(sol.m[i,t+1,1,t+1,par.Ba:,eps],sol.c[i,t+1,1,t+1,par.Ba:,eps],m_next)
 
                 E_margu_work += marg_u(c_next, par)*par.eps_w[eps] 
 
             #2) Find value, consumption and marginal utility if studying in next period
 
-            m_next = (1+par.r)*par.a_grid 
+            m_next = (1+par.r)*par.a_grid + transfer(i,par)
 
-            V_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,:,0],sol.V[i,t+1,0,t+1,:,0],m_next)
+            V_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,par.Ba:,0],sol.V[i,t+1,0,t+1,par.Ba:,0],m_next)
 
-            c_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,:,0],sol.c[i,t+1,0,t+1,:,0],m_next) 
+            c_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,par.Ba:,0],sol.c[i,t+1,0,t+1,par.Ba:,0],m_next) 
 
             margu_study = marg_u(c_next_study,par) 
             #assert np.mean(np.isnan(margu_study)) ==0
@@ -111,7 +124,7 @@ def EGM_DC(t,sol,par):
             E_margu = ccp[0]*margu_study+ccp[1]*E_margu_work
             #assert np.mean(np.isnan(E_margu)) ==0
             c_now = (par.beta*(1+par.r)*E_margu)**(1/-par.rho)
-            m_now = par.a_grid + c_now - transfer(i,par)
+            m_now = par.a_grid + c_now 
             V_now = util(c_now,par) + par.beta*log_sum
             #assert np.mean(np.isnan(c_now)) ==0 
 
@@ -135,9 +148,13 @@ def EGM_DC(t,sol,par):
                             V[j] = V_geuss 
                             c[j] = c_geuss 
             
-            sol.c[i,t,0,t,:,0] = c
-            sol.m[i,t,0,t,:,0] = m 
-            sol.V[i,t,0,t,:,0] = V
+            sol.c[i,t,0,t,par.Ba:,0] = c
+            sol.m[i,t,0,t,par.Ba:,0] = m 
+            sol.V[i,t,0,t,par.Ba:,0] = V
+
+            sol.c[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
+            sol.m[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
+            sol.V[i,t,0,t,:par.Ba,0] = value_of_choice_working(sol.m[i,t,0,t,:par.Ba,0] ,sol.c[i,t,0,t,:par.Ba,0] , i, t, t, sol, par)
 
 
 
@@ -159,15 +176,18 @@ def marg_u(c,par):
 def value_of_choice_study(m,c,type,t,sol,par): 
     a = m-c 
 
-    V_next_work = np.nan
+    V_next_work = 0
 
     for eps in range(par.neps):
         m_next = (1+par.r)*a
-        V_next_work += tools.interp_linear_1d_scalar(sol.m[type,t+1,1,t+1,:,eps],sol.V[type,t+1,1,t+1,:,eps],m_next)*par.eps_w[eps]
+        try:
+            V_next_work += tools.interp_linear_1d_scalar(sol.m[type,t+1,1,t+1,:,eps],sol.V[type,t+1,1,t+1,:,eps],m_next)*par.eps_w[eps]
+        except: 
+            V_next_work += tools.interp_linear_1d(sol.m[type,t+1,1,t+1,:,eps],sol.V[type,t+1,1,t+1,:,eps],m_next)*par.eps_w[eps]
 
     #2) Find value, consumption and marginal utility if studying in next period
 
-    m_next = (1+par.r)*a
+    m_next = (1+par.r)*a + transfer(type,par)
 
     V_next_study = tools.interp_linear_1d_scalar(sol.m[type,t+1,0,t+1,:,0],sol.V[type,t+1,0,t+1,:,0],m_next)
     
@@ -181,3 +201,30 @@ def value_of_choice_study(m,c,type,t,sol,par):
     return util(c,par) + par.beta*log_sum
 
 
+
+def value_of_choice_working(m,c,type,t,educ,sol,par):
+    a = m - c
+    m_next = (1+par.r)*a
+    V_next_work = 0
+
+    for i_eps in range(par.neps): 
+        try: 
+            V_next_work += tools.interp_linear_1d_scalar(sol.m[type,t+1,1,educ+1,:,i_eps], sol.V[type,t+1,1,educ+1,:,i_eps], m_next)*par.eps_w[i_eps]
+        except: 
+            V_next_work += tools.interp_linear_1d(sol.m[type,t+1,1,educ+1,:,i_eps], sol.V[type,t+1,1,educ+1,:,i_eps], m_next)*par.eps_w[i_eps]
+
+    return util(c,par) + par.beta*V_next_work
+
+
+def value_of_choice_working2(m,c,type,t,educ,sol,par):
+    a = m - c
+    m_next = (1+par.r)*a
+    V_next_work = 0
+
+    for i_eps in range(par.neps): 
+        try: 
+            V_next_work += tools.interp_linear_1d_scalar(sol.m[type,t+1,1,educ,:,i_eps], sol.V[type,t+1,1,educ,:,i_eps], m_next)*par.eps_w[i_eps]
+        except: 
+            V_next_work += tools.interp_linear_1d(sol.m[type,t+1,1,educ,:,i_eps], sol.V[type,t+1,1,educ,:,i_eps], m_next)*par.eps_w[i_eps]
+
+    return util(c,par) + par.beta*V_next_work
