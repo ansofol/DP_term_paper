@@ -6,7 +6,7 @@ import tools as tools
 from DC_EGM import EGM_DC
 import EGM
 from consav import newton_raphson
-from numba import njit
+from numba import njit, jit
 
 class Model():
 
@@ -36,8 +36,8 @@ class Model():
         par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
 
         # preferences
-        par.rho = 2 # CRRA coefficient
-        par.nu = 1 # inverse frisch
+        par.rho = 2. # CRRA coefficient
+        par.nu = 1. # inverse frisch
         par.beta = 0.98
 
         # Extreme value type one distribution 
@@ -105,11 +105,17 @@ class Model():
                                 
                                 # leave no assets
                                 #obj = lambda x: -self.util_last(x,wage,a)
-                                wage = self.wage_func(i_S,t,i_type,eps)
-                                res = solve_last(np.array([a]), wage, par.rho, par.nu)
+                                wage = np.array([self.wage_func(i_S,t,i_type,eps)])
+                                beta = np.array([par.beta])
+                                rho = np.array([par.rho])
+                                nu = np.array([par.nu])
+                                r = np.array([par.r])
+                                print(a, wage, beta, rho, nu, r)
+                                res = solve_last_v(np.array([a]), wage, beta, rho, nu, r)
 
-                                ell = res[0]
-                                c = wage*ell + a
+                                ell = res[1]
+                                #c = wage*ell + a
+                                c = res[0]
 
                                 sol.c[idx] = c
                                 sol.ell[idx] = ell
@@ -177,18 +183,18 @@ class Model():
         return u + par.beta*self.retire_value(m_next) - penalty
 
     # solve last period
-    def solve_last_v(self, idx):
-        par = self.par
-        i_type,t,_,i_S,i_a,i_eps = idx
-        wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
-        print(wage)
-        a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
+    #def solve_last_v(self, idx):
+    #    par = self.par
+    #    i_type,t,_,i_S,i_a,i_eps = idx
+    #    wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
+    #    print(wage)
+    #    a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
 
-        obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
+    #    obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
 
-        res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
+    #    res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
         #assert res.success
-        return res
+    #    return res
     
     def exp_MU(self, i_type,t,i_work,i_S,i_a):
         """
@@ -211,54 +217,36 @@ class Model():
             EMU += MU*par.eps_w[ii_eps]
         return EMU
 
-
-    
-
-
-    def solve_old(self): 
-        par = self.par 
-        sol = self.sol 
-
-
-        for t in range(par.Tmax-1, -1, -1):
-            if t == par.Tmax-1:
-                for i_z in range(par.Ntypes):
-                    for i_k in range(2): 
-                        for i_j in range(par.Smax+1):
-                            for i_eps in range(par.neps):
-                                sol.m[i_z,t,i_k,i_j,1:,i_eps] = (1+par.r)*par.a_grid
-                                sol.c[i_z,t,i_k,i_j,1:,i_eps] = sol.m[i_z,t,i_k,i_j,1:,i_eps]
-                                sol.V[i_z,t,i_k,i_j,1:,i_eps]= util(sol.c[i_z,t,i_k,i_j,1:,i_eps],par)
-            else: 
-                EGM(t,sol,par)
-            if t < par.Smax:
-                EGM_DC(t,sol,par)
-
 def util(c,par): 
     return c**(1-par.rho)/(1-par.rho)
 
-@njit
-def obj_last(ell, a, w, rho, nu):
-    c = ell*w+a
-    u = (c**(1-rho))/(1-rho) - (ell**(1+nu))/(1+nu)
-    return -u[0]
+#@njit
+#def obj_last(ell, a, w, rho, nu):
+#    c = ell*w+a
+#    u = (c**(1-rho))/(1-rho) - (ell**(1+nu))/(1+nu)
+#    return -u[0]
 
 # solve last period
-@njit(parallel=True)
-def solve_last(a, w, rho, nu):
-    res = newton_raphson.optimizer(obj_last, x0=a, args=(a,w,rho,nu))
-    return res
+#@njit
+#def solve_last(a, w, rho, nu):
+#    res = newton_raphson.optimizer(obj_last, x0=a, args=(a,w,rho,nu))
+#    return res
 
 @njit
 def obj_last_v(x, a, w, beta, rho, nu, r):
     c = x[0]
     ell = x[1]
-    m_next = (1+r)*(a-c-w*ell)
-    u = (c**(1-rho))/(1-rho) - (ell**(1+nu))/(1+nu) + beta*m_next**0.5
+    m_next = (1+r)*(a-c+w*ell)
+    if m_next > 0:
+        bonus = m_next**0.5 #retirement value here
+    else:
+        bonus = 100*m_next
+    u = (c**(1-rho))/(1-rho) - (ell**(1+nu))/(1+nu) + bonus
     return -u[0]
 
-@njit(parallel=True)
+@njit
 def solve_last_v(a, w, beta, rho, nu, r):
-    x0 = np.array([a/3, 1/w])
+    print(a, w, beta, rho, nu, r)
+    x0 = np.array([a[0]/3, 1/w[0]])
     res = newton_raphson.optimizer(obj_last_v, x0=x0, args=(a,w,beta,rho,nu,r))
     return res
