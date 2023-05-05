@@ -13,7 +13,7 @@ def EGM_DC(i,t,sol,par):
     V_next_work = np.zeros((par.Na))
     E_margu_work = np.zeros((par.Na))
 
-    if t >= par.Smax - 1: # In this case the individual will work next period 
+    if t >= par.Smax -1: # In this case the individual will work next period 
         
         for eps in range(par.neps): #Calculates the expected value and expected marginal utility if working in the next period
             # Should be vectorized 
@@ -180,3 +180,4 @@ def value_of_choice_working(m,c,type,t,sol,par):
             V_next_work += tools.interp_linear_1d(sol.m[type,t+1,1,t+1,par.Ba:,i_eps], sol.V[type,t+1,1,t+1,par.Ba:,i_eps], m_next)*par.eps_w[i_eps]
 
     return util(c,par) + par.beta*V_next_work
+

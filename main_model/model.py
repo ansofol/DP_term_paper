@@ -22,11 +22,11 @@ class Model():
         par.Ntypes = 4
 
         # cognitive types
-        par.theta_high = 2/3*100
-        par.theta_low = 1/3*100
+        par.theta_high =  2/3
+        par.theta_low = 1/3
 
         # transfer types
-        par.phi_high = 1
+        par.phi_high = 0.01
         par.phi_low = 0.1
 
         # combined
@@ -47,10 +47,10 @@ class Model():
         par.Smax = 4
 
         # income
-        par.sigma = 1 # or something
+        par.sigma = 0.0 # or something
         # maybe education specific age profile here
-        #par.r = 1/par.beta - 1
-        par.r = 0.0
+        par.r = 1/par.beta - 1
+        #par.r = 0.15
 
         # time
         par.Tmax = 10
@@ -64,10 +64,18 @@ class Model():
 
         par.neps = 5
 
+
+        # Simulation 
+        par.N = 10000 # Number of individuals to simulate 
+        par.Tsim = par.Tmax #Periods to simulate 
+        par.a_initial = 10
+
+
     def set_grids(self):
         
         par = self.par
         sol = self.sol
+        sim = self.sim
 
         #### grids ###
         # assets
@@ -81,6 +89,7 @@ class Model():
 
         #### productivity shocks ####
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
+        par.eps_grid*par.sigma
 
         #### solution grids ####
         shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na + par.Ba, par.neps)
@@ -90,6 +99,13 @@ class Model():
         sol.V = np.zeros(shape) + np.nan
         sol.m = np.zeros(shape) + np.nan
         sol.a = np.zeros(shape) + np.nan
+
+        ### Simulation grid ### 
+        shape_sim = (par.Ntypes,par.N,par.Tsim)
+        sim.c = np.zeros(shape_sim) 
+        sim.S = np.zeros(shape_sim) 
+        sim.ell = np.zeros(shape_sim) 
+        sim.a = np.zeros(shape_sim) 
 
     def solve(self):
         par = self.par
