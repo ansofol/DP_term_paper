@@ -57,7 +57,7 @@ class Model():
 
         # grids
         par.a_phi = 1.1
-        par.a_min = 1e-16
+        par.a_min = 1e-8
         par.a_max = 1000
         par.Na = 200
         par.Ba = 10
@@ -108,17 +108,19 @@ class Model():
                                 # leave no assets
                                 #obj = lambda x: -self.util_last(x,wage,a)
                                 wage = self.wage_func(i_S,t,i_type,eps)
-                                res = self.solve_last(idx)
+                                res = self.solve_last_v(idx)
 
                                 #assert res.success
 
                                 if res.success:
-                                    ell = res.x
-                                    c = wage*ell + a
+                                    ell = res.x[1]
+                                    c = res.x[0]
+                                    #ell = res.x
+                                    #c = wage*ell + a
 
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
-                                    sol.a[idx] = 0
+                                    sol.a[idx] = a + wage*ell - c
                                     sol.m[idx] = a
                                     sol.V[idx] = self.util_work(c, ell)
                                 else:
@@ -205,9 +207,8 @@ class Model():
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
-        print(wage)
+        
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-
         obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
 
         res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
