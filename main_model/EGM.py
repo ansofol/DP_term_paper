@@ -26,13 +26,10 @@ def EGM_step(t,i_type,i_S,model):
             c_endo[i_a] = inv_marginal_util(par.beta*(1+par.r)*EMU)
             
             # compute labor from intratemporal FOC
-            ell_endo[i_a] = (wage*c_endo[i_a]**(-par.rho))**(1/par.nu)
+            ell_endo[i_a] = ell_from_FOC(c_endo[i_a], wage, par) 
 
             # endogenous grid
             m_endo[i_a] = a - wage*ell_endo[i_a] + c_endo[i_a]
-
-            #c_exo = tools.interp_linear_1d(m_endo, c_endo, (1+par.r)*par.a_grid)
-            #ell_exo = tools.interp_linear_1d(m_endo, ell_endo, (1+par.r)*par.a_grid)
         
 
         # interpolate back to exogenous grid
@@ -49,17 +46,17 @@ def EGM_step(t,i_type,i_S,model):
                 a_exo[i_a] = 0
 
                 # ensure intra-period FOC holds
-                intra_FOC = lambda c: a + wage*((wage*c**(-par.rho))**(1/par.nu)) - c
-                root = optimize.root_scalar(intra_FOC, bracket=(1e-12, 20000), x0=a+1e-12)
+                intra_FOC = lambda c: a + wage*ell_from_FOC(c, wage, par) - c 
+                root = optimize.root_scalar(intra_FOC, bracket=(1e-12, 20000), x0=a+1e-12) #maybe this bracket should be adjusted to something a bit more general
                 assert root.converged
                 c_exo[i_a] = root.root
-                ell_exo[i_a] = (wage*c_exo[i_a]**(-par.rho))**(1/par.nu)
+                ell_exo[i_a] = ell_from_FOC(root.root, wage, par) 
 
         assert np.all(a_exo >=0)
 
-        # interpolate back to exogenous grids (I don't know if this is the way)
-        sol.c[i_type, t, 1, i_S, par.Ba:, i_eps] = c_exo #tools.interp_linear_1d(m_endo, c_endo, (1+par.r)*par.a_grid)
-        sol.ell[i_type, t, 1, i_S, par.Ba:, i_eps] = ell_exo #tools.interp_linear_1d(m_endo, ell_endo, (1+par.r)*par.a_grid)
+        # interpolate back to exogenous grids 
+        sol.c[i_type, t, 1, i_S, par.Ba:, i_eps] = c_exo 
+        sol.ell[i_type, t, 1, i_S, par.Ba:, i_eps] = ell_exo 
         sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
         sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
 
@@ -74,7 +71,5 @@ def EGM_step(t,i_type,i_S,model):
             sol.V[i_type, t, 1, i_S, par.Ba+i_a, :] = model.util_work(c_exo[i_a], ell_exo[i_a]) + par.beta*v_next
 
 
-        #sol.c[i_type, t, 1, i_S, :, i_eps] = c_endo
-        #sol.ell[i_type, t, 1, i_S, :, i_eps] = ell_endo
-        #sol.m[i_type, t, 1, i_S, :, i_eps] =  m_endo
-                    
+def ell_from_FOC(c, wage, par):
+    return ((wage/par.vartheta)*c**-par.rho)**(1/par.nu)
