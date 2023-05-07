@@ -36,8 +36,9 @@ class Model():
         # preferences
         par.rho = 1.5 # CRRA coefficient
         par.nu = 3 # inverse frisch
-        par.beta = 0.4
+        par.beta = 0.8
         par.vartheta = 0.0415
+        par.kappa = 0.5
         
 
         # Extreme value type one distribution 
@@ -50,14 +51,14 @@ class Model():
         par.sigma = 0.0 # or something
         # maybe education specific age profile here
         par.r = 1/par.beta - 1
-        #par.r = 0.15
+        #par.r = 0.02
 
         # time
         par.Tmax = 10
 
         # grids
         par.a_phi = 1.1
-        par.a_min = 1e-8
+        par.a_min = 2 #check this later
         par.a_max = 1000
         par.Na = 200
         par.Ba = 10
@@ -90,6 +91,7 @@ class Model():
         #### productivity shocks ####
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
         par.eps_grid*par.sigma
+        par.eps_w /= par.eps_w.sum()
 
         #### solution grids ####
         shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na + par.Ba, par.neps)
@@ -97,6 +99,7 @@ class Model():
         sol.ell = np.zeros(shape) + np.nan
         sol.ccp_work = np.zeros(shape) + np.nan
         sol.V = np.zeros(shape) + np.nan
+        sol.dV = np.zeros(shape) + np.nan
         sol.m = np.zeros(shape) + np.nan
         sol.a = np.zeros(shape) + np.nan
 
@@ -138,9 +141,12 @@ class Model():
                                     sol.ell[idx] = ell
                                     sol.a[idx] = a + wage*ell - c
                                     sol.m[idx] = a
-                                    sol.V[idx] = self.util_work(c, ell)
+                                    sol.V[idx] = res.fun
+                                    sol.dV[idx] = -par.beta*par.kappa*(1+par.r)*((1+par.r)*(a+wage*ell-c))**(-par.rho)
                                 else:
                                     print(f'Did not converge at {idx}')
+                                    print(a)
+                                    print(wage)
                                     assert res.success
                                     # this becomes an issue if we allow for borrowing.
                                     #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
@@ -173,17 +179,7 @@ class Model():
 
     def util_work(self,c,ell):
         par = self.par
-
-        # impose penalty if lower bound is violated
-        penalty = 0
-        #if ell <= 0:
-        penalty += -1000*np.fmin(ell, 0)
-        #print('ell penalized')
-        #if c <= 0:
-        #print('c penalized')
-        penalty += -1000*np.fmin(c,0)
-
-        return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu) - penalty
+        return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu)
     
 
     def util_last(self, ell, w,a):
@@ -199,24 +195,30 @@ class Model():
         return m**(-1/par.rho)
     
         
-    def retire_value(self, a):
-        par = self.par
-        v = np.zeros(a.shape)
-        v[a >= 0] = (a[a>=0]**0.5)
-        v[a<0] = 0
-        return v
+
     
-    def util_last_v(self, c, ell, w, a):
+
+    def last_util(self, x, a, wage):
         par = self.par
 
-        u = self.util_work(c, ell)
-        m_next = (a + w*ell- c)*(1+par.r)
+        c = x[0]
+        ell =  x[1]
 
-        # penalty for violating budget constraint
-        penalty = np.zeros(m_next.shape)
-        penalty -= 100*np.fmin(0, m_next)
+        uc = (1/(1-par.rho))*c**(1-par.rho)
+        dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
+        a_next = (a + wage*ell - c)*(1+par.r)
+        retire = (1/(1-par.rho))*a_next**(1-par.rho)
+        return  uc - dul + par.beta*par.kappa*retire
 
-        return u + par.beta*self.retire_value(m_next) - penalty
+    def jac_last(self, x, a, wage):
+        par= self.par
+        c = x[0]
+        ell =  x[1]
+
+        dc = c**(-par.rho) -par.beta*(1+par.r)*par.kappa*((1+par.r)*(a+wage*ell-c))**(-par.rho)
+        dl = -par.vartheta*ell**(par.nu) + par.beta*par.kappa*(1+par.r)*wage*((1+par.r)*(a+wage*ell-c))**(-par.rho)
+        jac= np.array([dc, dl])
+        return jac
 
     # solve last period
     def solve_last_v(self, idx):
@@ -225,9 +227,12 @@ class Model():
         wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
         
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-        obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
+        #obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
+        obj = lambda x: -self.last_util(x, a,wage)
+        obj_jac = lambda x: -self.jac_last(x, a, wage)
 
-        res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
+        #res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
+        res = optimize.minimize(obj, x0=(a,1/wage), method='bfgs', jac=obj_jac)
         #assert res.success
         return res
     

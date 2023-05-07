@@ -66,7 +66,7 @@ def EGM_step(t,i_type,i_S,model):
             EV_next = v_next_vec@par.eps_w
             v_next_interp = interpolate.RegularGridInterpolator([sol.m[i_type, t, 1, i_S, par.Ba:, i_eps]], EV_next, 
                                                                 method='linear', bounds_error=False, fill_value=None)
-            m_next = a
+            m_next = a*(1+par.r) 
             v_next = v_next_interp([m_next])
             sol.V[i_type, t, 1, i_S, par.Ba+i_a, :] = model.util_work(c_exo[i_a], ell_exo[i_a]) + par.beta*v_next
 
