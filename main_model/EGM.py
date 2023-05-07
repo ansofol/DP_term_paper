@@ -18,26 +18,17 @@ def EGM_step(t,i_type,i_S,model):
         ell_endo = np.zeros(par.Na) + np.nan
         m_endo = np.zeros(par.Na) + np.nan
         wage = wage_func(i_S,t,i_type,eps)
-        for i_a, a in enumerate(par.a_grid): # loop over end of period assets
 
-            EMU = model.exp_MU(i_type,t+1,1,i_S,i_a)
-            
-            # invert marginal utility
-            c_endo[i_a] = inv_marginal_util(par.beta*(1+par.r)*EMU)
-            
-            # compute labor from intratemporal FOC
-            ell_endo[i_a] = ell_from_FOC(c_endo[i_a], wage, par) 
+        # expected marginal utility in next period by end of period assets
+        EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
+        c_endo = inv_marginal_util(par.beta*(1+par.r)*EMU) # consumption from Euler
+        ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
+        m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
 
-            # endogenous grid
-            m_endo[i_a] = a - wage*ell_endo[i_a] + c_endo[i_a]
-        
 
         # interpolate back to exogenous grid
-        c_interp = interpolate.RegularGridInterpolator([m_endo], c_endo, method='linear', bounds_error=False, fill_value=None)
-        c_exo = c_interp(par.a_grid)
-
-        ell_interp = interpolate.RegularGridInterpolator([m_endo], ell_endo, method='linear', bounds_error=False, fill_value=None)
-        ell_exo = ell_interp(par.a_grid)
+        c_exo = tools.interp_linear_1d(m_endo, c_endo, par.a_grid)
+        ell_exo = tools.interp_linear_1d(m_endo, ell_endo, par.a_grid)
         a_exo = par.a_grid + wage*ell_exo - c_exo
   
         # check budget constraint
@@ -60,15 +51,13 @@ def EGM_step(t,i_type,i_S,model):
         sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
         sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
 
-        # compute value function
-        for i_a, a in enumerate(par.a_grid):
-            v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
-            EV_next = v_next_vec@par.eps_w
-            v_next_interp = interpolate.RegularGridInterpolator([sol.m[i_type, t, 1, i_S, par.Ba:, i_eps]], EV_next, 
-                                                                method='linear', bounds_error=False, fill_value=None)
-            m_next = a*(1+par.r) 
-            v_next = v_next_interp([m_next])
-            sol.V[i_type, t, 1, i_S, par.Ba+i_a, :] = model.util_work(c_exo[i_a], ell_exo[i_a]) + par.beta*v_next
+    # compute value function
+    v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
+    EV_next = v_next_vec@par.eps_w
+    m_next = a_exo*(1+par.r) #### OBS: changed this from par.a_grid bc I forgot i had changed what the grids meant
+    v_next = tools.interp_linear_1d(sol.m[i_type, t+1, 1, i_S, par.Ba:, i_eps], EV_next, m_next)
+    util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    sol.V[i_type, t, 1, i_S, par.Ba:, :] = np.repeat(util, par.neps).reshape(par.Na, par.neps)
 
 
 def ell_from_FOC(c, wage, par):

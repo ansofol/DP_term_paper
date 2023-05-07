@@ -36,7 +36,7 @@ class Model():
         # preferences
         par.rho = 1.5 # CRRA coefficient
         par.nu = 3 # inverse frisch
-        par.beta = 0.8
+        par.beta = 0.975
         par.vartheta = 0.0415
         par.kappa = 0.5
         
@@ -125,7 +125,6 @@ class Model():
                                 idx =(i_type,t,1,i_S,par.Ba+i_a,i_eps)
                                 
                                 # leave no assets
-                                #obj = lambda x: -self.util_last(x,wage,a)
                                 wage = self.wage_func(i_S,t,i_type,eps)
                                 res = self.solve_last_v(idx)
 
@@ -134,8 +133,6 @@ class Model():
                                 if res.success:
                                     ell = res.x[1]
                                     c = res.x[0]
-                                    #ell = res.x
-                                    #c = wage*ell + a
 
                                     sol.c[idx] = c
                                     sol.ell[idx] = ell
@@ -227,16 +224,13 @@ class Model():
         wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
         
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-        #obj = lambda x: -self.util_last_v(x[0], x[1], wage, a)
         obj = lambda x: -self.last_util(x, a,wage)
         obj_jac = lambda x: -self.jac_last(x, a, wage)
 
-        #res = optimize.minimize(obj, x0=(a,1),method='nelder-mead', options={'maxiter':200})
         res = optimize.minimize(obj, x0=(a,1/wage), method='bfgs', jac=obj_jac)
-        #assert res.success
         return res
     
-    def exp_MU(self, i_type,t,i_work,i_S,i_a):
+    def exp_MU(self, i_type,t,i_work,i_S,a):
         """
         Expected marginal utility in period t (quadrature over epsilon shocks)
         """
@@ -244,15 +238,10 @@ class Model():
         sol = self.sol
         EMU = 0
         for ii_eps, eps in enumerate(par.eps_grid):
-            if i_work == 1: 
-                m_next_grid = sol.m[i_type, t, 1,i_S,par.Ba:,ii_eps] # next period beginning of state assets
-                c_next_grid = sol.c[i_type, t,1,i_S,par.Ba:,ii_eps] # next period consumption
-            else:
-                m_next_grid = sol.m[i_type, t,0,i_S,:,ii_eps] # next period beginning of state assets
-                c_next_grid = sol.c[i_type, t,0,i_S,:,ii_eps] # next period consumption
-
-            m_next = (1+par.r)*par.a_grid[i_a]
-            c_interp = tools.interp_linear_1d_scalar(m_next_grid, c_next_grid, m_next)
+            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
+            c_next_grid = sol.c[i_type, t,1,i_S,par.Ba:,ii_eps] # next period consumption
+            m_next = a*(1+par.r)
+            c_interp = tools.interp_linear_1d(m_next_grid, c_next_grid, m_next)
             MU = self.marginal_util(c_interp)
             EMU += MU*par.eps_w[ii_eps]
         return EMU
