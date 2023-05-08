@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import tools as tools
 from DC_EGM import EGM_DC
 import EGM
+import joblib
 
 class Model():
 
@@ -118,7 +119,6 @@ class Model():
         for t in range(par.Tmax-1, -1, -1):
             for i_type in range(par.Ntypes):
                 for i_S, S in enumerate(par.S_grid):
-
                     if t == par.Tmax-1: # solve last period one state at a time
                         for i_a,a in enumerate(par.a_grid):
                             for i_eps, eps in enumerate(par.eps_grid):
@@ -158,17 +158,6 @@ class Model():
     #####################
 
     # solve last period
-    def solve_last(self, idx):
-        par = self.par
-        i_type,t,_,i_S,i_a,i_eps = idx
-        wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
-        a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-
-        obj = lambda x: -self.util_last(x,wage,a)
-
-        res = optimize.minimize(obj, x0=1,method='nelder-mead', options={'maxiter':200})
-        #assert res.success
-        return res
     
     def wage_func(self, i_S, t, i_type, eta):
         par = self.par
@@ -191,10 +180,6 @@ class Model():
         par = self.par
         return m**(-1/par.rho)
     
-        
-
-    
-
     def last_util(self, x, a, wage):
         par = self.par
 
@@ -255,26 +240,41 @@ class Model():
 
 
     
+    # fun and games with parallelization 
+    # not really working and is also very slow
+    def solve_last_v2(self, i_type, i_S, a, eps):
+        par = self.par
+        wage = self.wage_func(i_S, -1, i_type, eps)
 
+        obj = lambda x: -self.last_util(x,a,wage)
+        obj_jac = lambda x: -self.jac_last(x,a,wage)
 
-    def solve_old(self): 
-        par = self.par 
-        sol = self.sol 
+        def bc(x):
+            c = x[0]
+            ell = x[1]
+            bc = a + wage*ell - c
+            return bc
+        constr = {'fun': bc, 'type':'ineq'}
+        res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
+        if not res.success:
+            print(f'Did not converge at {i_type, i_S, a, eps}')
+        else:
+            return [res.x[0], res.x[1], -res.fun]
+    
+    def parallel_solve_last(self, i_type, i_S, n_jobs=2):
+        par = self.par
 
+        solver = lambda a, eps: self.solve_last_v2(i_type, i_S, a, eps)
 
-        for t in range(par.Tmax-1, -1, -1):
-            if t == par.Tmax-1:
-                for i_z in range(par.Ntypes):
-                    for i_k in range(2): 
-                        for i_j in range(par.Smax+1):
-                            for i_eps in range(par.neps):
-                                sol.m[i_z,t,i_k,i_j,1:,i_eps] = (1+par.r)*par.a_grid
-                                sol.c[i_z,t,i_k,i_j,1:,i_eps] = sol.m[i_z,t,i_k,i_j,1:,i_eps]
-                                sol.V[i_z,t,i_k,i_j,1:,i_eps]= util(sol.c[i_z,t,i_k,i_j,1:,i_eps],par)
-            else: 
-                EGM(t,sol,par)
-            if t < par.Smax:
-                EGM_DC(t,sol,par)
+        tasks = (joblib.delayed(solver)(a, eps) for a in par.a_grid for eps in par.eps_grid)
+        res = joblib.Parallel(n_jobs=n_jobs)(tasks)
+
+        c = np.array(res)[:, 0].reshape(par.neps, par.Na).T
+        ell = np.array(res)[:, 1].reshape(par.neps, par.Na).T
+        V = np.array(res)[:,2].reshape(par.neps,par.Na).T
+        return c, ell, V
+
+    
 
 def util(c,par): 
     return c**(1-par.rho)/(1-par.rho)
