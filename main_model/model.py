@@ -38,7 +38,7 @@ class Model():
         par.nu = 3 # inverse frisch
         par.beta = 0.975
         par.vartheta = 0.0415
-        par.kappa = 0.5
+        par.kappa = 1
         
 
         # Extreme value type one distribution 
@@ -48,7 +48,7 @@ class Model():
         par.Smax = 4
 
         # income
-        par.sigma = 0.0 # or something
+        par.sigma = 0.1 # or something
         # maybe education specific age profile here
         par.r = 1/par.beta - 1
         #par.r = 0.02
@@ -58,7 +58,7 @@ class Model():
 
         # grids
         par.a_phi = 1.1
-        par.a_min = 2 #check this later
+        par.a_min = 1e-5 #check this later
         par.a_max = 1000
         par.Na = 200
         par.Ba = 10
@@ -69,7 +69,7 @@ class Model():
         # Simulation 
         par.N = 10000 # Number of individuals to simulate 
         par.Tsim = par.Tmax #Periods to simulate 
-        par.a_initial = 10
+        par.a_initial = 3
 
 
     def set_grids(self):
@@ -90,8 +90,8 @@ class Model():
 
         #### productivity shocks ####
         par.eps_grid, par.eps_w = tools.gauss_hermite(par.neps) 
-        par.eps_grid*par.sigma
-        par.eps_w /= par.eps_w.sum()
+        par.eps_w /= np.sqrt(np.pi)
+        par.eps_grid *= np.sqrt(2)*par.sigma
 
         #### solution grids ####
         shape = (par.Ntypes, par.Tmax, 2, par.Smax+1, par.Na + par.Ba, par.neps)
@@ -227,7 +227,14 @@ class Model():
         obj = lambda x: -self.last_util(x, a,wage)
         obj_jac = lambda x: -self.jac_last(x, a, wage)
 
-        res = optimize.minimize(obj, x0=(a,1/wage), method='bfgs', jac=obj_jac)
+        def bc(x):
+            c = x[0]
+            ell = x[1]
+            bc = a + wage*ell - c
+            return bc
+        constr = {'fun': bc, 'type':'ineq'}
+
+        res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
         return res
     
     def exp_MU(self, i_type,t,i_work,i_S,a):
