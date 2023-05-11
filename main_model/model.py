@@ -49,8 +49,8 @@ class Model():
         # income
         par.sigma = 1 # or something
         # maybe education specific age profile here
-        par.r = 1/par.beta - 1
-        #par.r = 0.02
+        #par.r = 1/par.beta - 1
+        par.r = 0.018 
 
         # time
         par.Tmax = 10
@@ -65,10 +65,16 @@ class Model():
         par.neps = 5
 
 
+
         # Simulation 
-        par.N = 1000 # Number of individuals to simulate 
+        par.N = 10_000 # Number of individuals to simulate 
         par.Tsim = par.Tmax #Periods to simulate 
-        par.a_initial = 0
+        par.m_initial = 3
+        par.random = np.random 
+        par.dist = [0.25, 0.25, 0.25, 0.25]
+
+        #Estimation 
+        par.Ns = 5
 
 
     def set_grids(self):
@@ -110,11 +116,14 @@ class Model():
         sol.EMU = np.zeros(shape) + np.nan
 
         ### Simulation grid ### 
-        shape_sim = (par.Ntypes,par.N,par.Tsim)
+        shape_sim = (par.N,par.Tsim)
         sim.c = np.zeros(shape_sim) 
         sim.S = np.zeros(shape_sim) 
         sim.ell = np.zeros(shape_sim) 
-        sim.a = np.zeros(shape_sim) 
+        sim.m = np.zeros(shape_sim) 
+        sim.type = np.zeros(par.N)
+        
+        par.random.seed(1687) # Simulation seed
 
     def solve(self):
         par = self.par
@@ -154,8 +163,8 @@ class Model():
                                     #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
                     else:
                         EGM.EGM_step(t, i_type, i_S, self) # EGM in working stage
-                    if t < par.Smax:
-                        EGM_DC(i_type, t, sol, par)
+                if t < par.Smax:
+                    EGM_DC(i_type, t, sol, par)
 
 
     #####################
