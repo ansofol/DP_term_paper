@@ -23,12 +23,12 @@ class Model():
         par.Ntypes = 4
 
         # cognitive types
-        par.theta_high =  2/3
-        par.theta_low = 1/3
+        par.theta_high =  0.9
+        par.theta_low = 0.1
 
         # transfer types
-        par.phi_high = 0.01
-        par.phi_low = 0.1
+        par.phi_high = 5
+        par.phi_low = 0.5
 
 
         # preferences
@@ -44,9 +44,10 @@ class Model():
 
         # education
         par.Smax = 4
+        par.lambda_max = 4
 
         # income
-        par.sigma = 0.1 # or something
+        par.sigma = 1 # or something
         # maybe education specific age profile here
         par.r = 1/par.beta - 1
         #par.r = 0.02
@@ -65,9 +66,9 @@ class Model():
 
 
         # Simulation 
-        par.N = 10000 # Number of individuals to simulate 
+        par.N = 1000 # Number of individuals to simulate 
         par.Tsim = par.Tmax #Periods to simulate 
-        par.a_initial = 5
+        par.a_initial = 0
 
 
     def set_grids(self):
@@ -87,7 +88,8 @@ class Model():
 
         #### education ####
         par.S_grid = np.arange(par.Smax+1)
-        par.lambda_vec = - tools.nonlinspace(-0.797, 0 , par.Smax+1, 1.03)
+        par.lambda_vec = - tools.nonlinspace(-par.lambda_max, 0 , par.Smax+1, 1.03)
+
         #par.lambda_vec = np.append(0,par.lambda_vec)
         par.lambda_vec = np.sort(par.lambda_vec)
 
