@@ -51,6 +51,9 @@ def EGM_step(t,i_type,i_S,model):
         sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
         sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
 
+        # used for computing Euler errors
+        sol.EMU[i_type, t, 1, i_S, par.Ba:, i_eps] = EMU
+
     # compute value function
     v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
     EV_next = v_next_vec@par.eps_w
