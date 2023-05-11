@@ -7,6 +7,8 @@ from DC_EGM import EGM_DC
 import EGM
 import joblib
 
+from auxiliary_funcs import *
+
 class Model():
 
     def __init__(self):
@@ -339,5 +341,3 @@ class Model():
 def util(c,par): 
     return c**(1-par.rho)/(1-par.rho)
 
-def wage_func(i_S, t, i_type, eta, par):
-        return np.exp(par.lambda_vec[i_S]*np.log(1+par.theta[i_type]) + eta)

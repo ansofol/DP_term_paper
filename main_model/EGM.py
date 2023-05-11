@@ -1,7 +1,7 @@
 import tools
 import numpy as np
 from scipy import optimize, interpolate
-from model import wage_func
+from auxiliary_funcs import *
 
 def EGM_step(t,i_type,i_S,model):
     

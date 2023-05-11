@@ -1,8 +1,6 @@
 import numpy as np 
 import tools as tools 
-import model
-
-wage_func = model.wage_func
+from auxiliary_funcs import *
 
 def EGM_DC(i,t,sol,par): 
 
