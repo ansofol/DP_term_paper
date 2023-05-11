@@ -1,12 +1,12 @@
 import tools
 import numpy as np
 from scipy import optimize, interpolate
+from auxiliary_funcs import *
 
 def EGM_step(t,i_type,i_S,model):
     
     par = model.par
     sol = model.sol
-    wage_func = model.wage_func
     marginal_util = model.marginal_util
     inv_marginal_util = model.inv_marginal_util
 
@@ -17,7 +17,7 @@ def EGM_step(t,i_type,i_S,model):
         c_endo = np.zeros(par.Na) + np.nan
         ell_endo = np.zeros(par.Na) + np.nan
         m_endo = np.zeros(par.Na) + np.nan
-        wage = wage_func(i_S,t,i_type,eps)
+        wage = wage_func(i_S,t,i_type,eps, par)
 
         # expected marginal utility in next period by end of period assets
         EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
