@@ -30,9 +30,6 @@ class Model():
         par.phi_high = 0.01
         par.phi_low = 0.1
 
-        # combined
-        par.theta = np.array([par.theta_high, par.theta_high, par.theta_low, par.theta_low])
-        par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
 
         # preferences
         par.rho = 1.5 # CRRA coefficient
@@ -80,6 +77,11 @@ class Model():
         sim = self.sim
 
         #### grids ###
+
+        # Types
+        par.theta = np.array([par.theta_high, par.theta_high, par.theta_low, par.theta_low])
+        par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
+
         # assets
         par.a_grid = tools.nonlinspace(par.a_min, par.a_max, par.Na, par.a_phi)
 
@@ -162,7 +164,7 @@ class Model():
     
     def wage_func(self, i_S, t, i_type, eta):
         par = self.par
-        return np.exp(par.lambda_vec[i_S]*np.log(par.theta[i_type]) + eta)
+        return np.exp(par.lambda_vec[i_S]*np.log(1+par.theta[i_type]) + eta)
 
     def util_work(self,c,ell):
         par = self.par
