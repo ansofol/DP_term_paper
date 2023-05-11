@@ -108,6 +108,7 @@ def EGM_DC(i,t,sol,par):
         sol.m[i,t,0,t,par.Ba:,0] = m 
         sol.V[i,t,0,t,par.Ba:,0] = V
         sol.ccp_work[i,t,0,t,par.Ba:,0] = ccp[1]
+        sol.EMU[i,t,0,t,par.Ba:, 0] = E_margu
 
         sol.c[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
         sol.m[i,t,0,t,:par.Ba,0] = np.linspace(1e-16,m[0]-1e-8,par.Ba)
