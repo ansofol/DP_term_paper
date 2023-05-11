@@ -1,6 +1,8 @@
 import numpy as np 
 import tools as tools 
+import model
 
+wage_func = model.wage_func
 
 def EGM_DC(i,t,sol,par): 
 
@@ -126,9 +128,10 @@ def transfer(type,par):
 def util(c,par): 
     return c**(1-par.rho)/(1-par.rho)
 
+"""
 def wage_func(i_S, t, theta, eta, par):
     return np.exp(par.lambda_vec[i_S]*np.log(1+theta) + eta)
-
+"""
 def marg_u(c,par): 
     return c**(-par.rho)
 

@@ -4,6 +4,7 @@ import model as model
 from DC_EGM import transfer
 from DC_EGM import value_of_choice_study
 
+wage_func = model.wage_func
 
 def simulate(sim,sol,par): 
 
@@ -67,9 +68,9 @@ def ccp(V,par):
 
     return ccp[1]
 
-
+"""
 def wage_func(i_S, t, i_type, eta, par):
     return np.exp(par.lambda_vec[i_S]*np.log(1+par.theta[i_type]) + eta)
-
+"""
 
 

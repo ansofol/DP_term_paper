@@ -139,7 +139,7 @@ class Model():
                                 idx =(i_type,t,1,i_S,par.Ba+i_a,i_eps)
                                 
                                 # leave no assets
-                                wage = self.wage_func(i_S,t,i_type,eps)
+                                wage = wage_func(i_S,t,i_type,eps, par)
                                 res = self.solve_last_v(idx)
 
                                 #assert res.success
@@ -172,11 +172,6 @@ class Model():
     #####################
 
     # solve last period
-    
-    def wage_func(self, i_S, t, i_type, eta):
-        par = self.par
-        return np.exp(par.lambda_vec[i_S]*np.log(1+par.theta[i_type]) + eta)
-
     def util_work(self,c,ell):
         par = self.par
         return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu)
@@ -220,7 +215,7 @@ class Model():
     def solve_last_v(self, idx):
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
-        wage = self.wage_func(i_S,t,i_type,par.eps_grid[i_eps])
+        wage = wage_func(i_S,t,i_type,par.eps_grid[i_eps], par)
         
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
         obj = lambda x: -self.last_util(x, a,wage)
@@ -309,7 +304,7 @@ class Model():
     # not really working and is also very slow
     def solve_last_v2(self, i_type, i_S, a, eps):
         par = self.par
-        wage = self.wage_func(i_S, -1, i_type, eps)
+        wage = wage_func(i_S, -1, i_type, eps, par)
 
         obj = lambda x: -self.last_util(x,a,wage)
         obj_jac = lambda x: -self.jac_last(x,a,wage)
@@ -343,3 +338,6 @@ class Model():
 
 def util(c,par): 
     return c**(1-par.rho)/(1-par.rho)
+
+def wage_func(i_S, t, i_type, eta, par):
+        return np.exp(par.lambda_vec[i_S]*np.log(1+par.theta[i_type]) + eta)
