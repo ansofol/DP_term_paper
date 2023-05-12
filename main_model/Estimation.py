@@ -5,8 +5,7 @@ from scipy import optimize as opt
 
 def estimate(data,model,weighting_matrix="I"): 
 
-    data_true = data
-    object = lambda x: obj(x,data=data_true,model=model,weighting_matrix=weighting_matrix)
+    object = lambda x: obj(x,data,model=model,weighting_matrix=weighting_matrix)
 
     result = opt.minimize(object, model.par.dist, method = "Nelder-Mead")
 
@@ -38,20 +37,20 @@ def criteria(par_est,data,model,weighting_matrix="I"):
     sim = model.sim
     par = model.par 
 
-    moment_sim = np.zeros(2*model.par.Smax)
+    moment_sim = np.zeros(2*(model.par.Smax+1))
     par.random.seed(2023)
     for i in range(par.Ns):
         reset_sim(sim, model)
         simulate(sim,sol,par)
         moment_sim +=  moments(sim,model)/model.par.Ns
     A = moment_data - moment_sim
-    print(f'Moment_sim is {moment_sim}')
-    print(f'Moment_data is {moment_data}')
+    print(f'Moment_sim is {np.round(moment_sim,4)}')
+    print(f'Moment_data is {np.round(moment_data,4)}')
 
  
     if weighting_matrix == "I": 
-        B  = np.eye(2*par.Smax)
-        print(A @ B @ A.T)
+        B  = np.eye(2*(par.Smax+1))
+        #print(A @ B @ A.T)
         return A @ B @ A.T
         
     
@@ -63,7 +62,7 @@ def criteria(par_est,data,model,weighting_matrix="I"):
 
 def moments(data,model): 
     par = model.par
-    moments = np.zeros(int((par.Ntypes*par.Smax)/2))
+    moments = np.zeros(int((par.Ntypes*(par.Smax+1)/2)))
 
     I_rich = (data.type == 0) + (data.type == 2)
     I_poor = (data.type == 1) + (data.type == 3) 
@@ -71,8 +70,8 @@ def moments(data,model):
     I = 0
     for k in [I_rich,I_poor]:
         for i, val in enumerate(np.unique(data.S[k])):
-            moments[I:][int(val)] = (np.unique(data.S[k],return_counts=True,axis=0)[-1]/len(data.S[k,0]))[i]
-        I += par.Smax
+            moments[I:][int(val)] += (np.unique(data.S[k],return_counts=True,axis=0)[-1]/len(data.S[k,0]))[i]
+        I += par.Smax+1
     return moments 
 
 
