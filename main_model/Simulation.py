@@ -54,6 +54,7 @@ def simulate(sim,sol,par):
                 s = int(np.max(sim.S[i,:],axis=0))
                 sim.c[i,t] = tools.interp_linear_1d_scalar(sol.m[type,t,1,s,par.Ba:,shock], sol.c[type,t,1,s,par.Ba:,shock], sim.m[i,t])
                 sim.ell[i,t] = tools.interp_linear_1d_scalar(sol.m[type,t,1,s,par.Ba:,shock], sol.ell[type,t,1,s,par.Ba:,shock], sim.m[i,t])
+                sim.S[i,t] = sim.S[i, t-1]
                 income = sim.m[i,t] + wage_func(s,t,type,par.eps_grid[shock],par)*sim.ell[i,t]
                 if t < par.Tmax - 1:
                     sim.m[i,t+1] = (1+par.r)*(income - sim.c[i,t])
