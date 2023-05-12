@@ -61,17 +61,22 @@ def criteria(par_est,data,model,weighting_matrix="I"):
 
 
 def moments(data,model): 
+    
     par = model.par
-    moments = np.zeros(int((par.Ntypes*(par.Smax+1)/2)))
+    moments = np.zeros(2*(par.Smax+1)) 
 
     I_rich = (data.type == 0) + (data.type == 2)
-    I_poor = (data.type == 1) + (data.type == 3) 
+    I_poor = (data.type == 1) + (data.type == 3)
 
-    I = 0
+    z = 0
     for k in [I_rich,I_poor]:
-        for i, val in enumerate(np.unique(data.S[k])):
-            moments[I:][int(val)] += (np.unique(data.S[k],return_counts=True,axis=0)[-1]/len(data.S[k,0]))[i]
-        I += par.Smax+1
+        for i in range(par.Smax+1): 
+            I_educ = np.max(np.max(data.S,axis=1)) == i 
+
+            I = k*I_educ
+
+            moments[z+i] = np.sum(I)/np.sum(k)
+        z += par.Smax+1 
     return moments 
 
 
