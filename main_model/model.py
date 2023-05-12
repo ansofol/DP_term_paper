@@ -249,6 +249,8 @@ class Model():
             EMU += MU*par.eps_w[ii_eps]
         return EMU
     
+
+
     #########################
     # Verification          #
     #########################
@@ -257,9 +259,9 @@ class Model():
         sol = self.sol
         sim = self.sim
 
-        c = sim.c[:,:,:-1]
-        c_next = sim.c[:,:,1:]
-        s = sim.S.max(axis=2)[0]
+        c = sim.c[:,:-1]
+        c_next = sim.c[:,1:]
+        s = sim.S.max(axis=1)
 
         # shape
         shape = c.shape
@@ -268,34 +270,33 @@ class Model():
         sim.epsilon = np.zeros(shape)
 
         # Check when budget constraint bounds
-        end_of_period_assets = (sim.a/(1+par.r))[:,:,1:].reshape(shape)
+        end_of_period_assets = (sim.m/(1+par.r))[:,1:].reshape(shape)
         non_bc =(end_of_period_assets>bc_limit).reshape(shape)
 
-        # compute expected marginal utility
-        # loop over type
-        # loop over edu
         for type in range(par.Ntypes):
             for edu in range(par.Smax):
-                index = (type, s==edu)
+                index = (s==edu)*(sim.type == type)
                 current_c = c[index]
                 current_a = end_of_period_assets[index]
-                
+
                 for t in range(par.Tmax-1):
                     if t < edu:
                         EMU = sol.EMU[type, t, 0, t, par.Ba:, 0] 
+                        a_grid = par.a_grid 
                     else:
                         EMU = sol.EMU[type, t, 1, edu, par.Ba:, 0]
-                    
-                    EMU_interp = tools.interp_linear_1d(par.a_grid, EMU, (current_a)[:,t])
+                        a_grid = par.a_grid
+
+                    EMU_interp = tools.interp_linear_1d(a_grid, EMU, (current_a)[:,t])
                     euler_error = self.inv_marginal_util(par.beta*(1+par.r)*EMU_interp) - current_c[:,t]
 
                     # save euler errorsfor i,j
-                    sim.Delta[type, s==edu, t] = euler_error
-                    sim.epsilon[type, s==edu, t] = np.log10(np.abs(euler_error)/current_c[:,t])
+                    sim.Delta[index, t] = euler_error
+                    sim.epsilon[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
 
         # return avg. euler over time, avg. relative euler over time
-        Delta_time = [sim.Delta[:,:,t][non_bc[:,:,t]].mean() for t in range(par.Tmax-1)]
-        epsilon_time = [sim.epsilon[:,:,t][non_bc[:,:,t]].mean() for t in range(par.Tmax-1)]
+        Delta_time = [sim.Delta[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        epsilon_time = [sim.epsilon[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
         return Delta_time, epsilon_time
 
 
