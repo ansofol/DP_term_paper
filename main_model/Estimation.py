@@ -1,23 +1,31 @@
 import numpy as np 
 from Simulation import simulate
 from scipy import optimize as opt 
+import copy as copy
 
 
-def estimate(data,model,weighting_matrix="I"): 
+def estimate(data,model,geuss,weighting_matrix="I"): 
 
-    object = lambda x: obj(x,data,model=model,weighting_matrix=weighting_matrix)
+    data_true = copy.deepcopy(data)
+    share_Rich = np.sum((data_true.type == 0) + (data_true.type == 2)) / len(data_true.type) 
+    share_Poor = 1-share_Rich
+    
+    list_shares = [share_Rich,share_Poor]
 
-    result = opt.minimize(object, model.par.dist, method = "Nelder-Mead")
+    object = lambda x: obj(x,data_true,model=model,shares = list_shares, weighting_matrix=weighting_matrix)
+
+    result = opt.minimize(object, geuss, method = "Nelder-Mead")
+    #result = opt.minimize(object, geuss, method = "Powell")
 
     return result
 
 
-def obj(x,data,model,weighting_matrix): 
-    p1 = x[0]
-    p2 = x[1]
-    p3 = x[2]
-    p4 = 1 - p1 - p2 -p3 
-
+def obj(x,data,model,shares, weighting_matrix): 
+    
+    p1 = shares[0]*x[0]
+    p2 = shares[1]*x[1]
+    p3 = shares[0] - p1
+    p4 = shares[1] - p2
     p_list = [p1,p2,p3,p4]
 
     return  criteria(p_list, data, model, weighting_matrix)
@@ -31,13 +39,13 @@ def criteria(par_est,data,model,weighting_matrix="I"):
     setattr(model.par, "dist", par_est)
     print(par_est)
 
-    model.set_grids()
+    #model.set_grids()
 
     sol = model.sol
     sim = model.sim
     par = model.par 
 
-    moment_sim = np.zeros(2*(model.par.Smax+1))
+    moment_sim = np.zeros(2*(model.par.Smax+2))
     par.random.seed(2023)
     for i in range(par.Ns):
         reset_sim(sim, model)
@@ -49,8 +57,8 @@ def criteria(par_est,data,model,weighting_matrix="I"):
 
  
     if weighting_matrix == "I": 
-        B  = np.eye(2*(par.Smax+1))
-        #print(A @ B @ A.T)
+        B  = np.eye(2*(par.Smax+2))
+        print(A @ B @ A.T)
         return A @ B @ A.T
         
     
@@ -63,7 +71,7 @@ def criteria(par_est,data,model,weighting_matrix="I"):
 def moments(data,model): 
     
     par = model.par
-    moments = np.zeros(2*(par.Smax+1)) 
+    moments = np.zeros(2*(par.Smax+2)) 
 
     I_rich = (data.type == 0) + (data.type == 2)
     I_poor = (data.type == 1) + (data.type == 3)
@@ -71,13 +79,14 @@ def moments(data,model):
     z = 0
     for k in [I_rich,I_poor]:
         for i in range(par.Smax+1): 
-            I_educ = np.max(np.max(data.S,axis=1)) == i 
+            I_educ = np.max(data.S,axis=1) == i 
 
             I = k*I_educ
 
-            moments[z+i] = np.sum(I)/np.sum(k)
-        z += par.Smax+1 
-    return moments 
+            moments[z+i] = np.sum(I)/np.sum(k)*100
+        moments[z+par.Smax+1] = np.mean(data.S[k])
+        z += par.Smax+2 
+    return moments
 
 
 def reset_sim(sim,model): 
