@@ -58,7 +58,7 @@ class Model():
         par.Tmax = 10
 
         # grids
-        par.a_phi = 1.1
+        par.a_phi = 1.3
         par.a_min = 1e-5 #check this later
         par.a_max = 1000
         par.Na = 200
@@ -116,6 +116,7 @@ class Model():
         sol.m = np.zeros(shape) + np.nan
         sol.a = np.zeros(shape) + np.nan
         sol.EMU = np.zeros(shape) + np.nan
+        sol.adj_EMUell = np.zeros(shape) + np.nan
 
         ### Simulation grid ### 
         shape_sim = (par.N,par.Tsim)
@@ -123,6 +124,7 @@ class Model():
         sim.S = np.zeros(shape_sim) 
         sim.ell = np.zeros(shape_sim) 
         sim.m = np.zeros(shape_sim) 
+        sim.wage = np.zeros(shape_sim)
         sim.type = np.zeros(par.N)
         
         par.random.seed(1687) # Simulation seed
@@ -242,12 +244,29 @@ class Model():
         EMU = 0
         for ii_eps, eps in enumerate(par.eps_grid):
             m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
-            c_next_grid = sol.c[i_type, t,1,i_S,par.Ba:,ii_eps] # next period consumption
+            c_next_grid = sol.c[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
             m_next = a*(1+par.r)
             c_interp = tools.interp_linear_1d(m_next_grid, c_next_grid, m_next)
             MU = self.marginal_util(c_interp)
             EMU += MU*par.eps_w[ii_eps]
         return EMU
+    
+    def adj_exp_MUell(self, i_type,t,i_work,i_S,a):
+        """
+        Expected marginal utility in period t (quadrature over epsilon shocks), adjusted for wage
+        """
+        par = self.par
+        sol = self.sol
+        adj_EMU = 0
+        for ii_eps, eps in enumerate(par.eps_grid):
+            wage = wage_func(i_S, t, i_type, eps, par)
+            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
+            ell_next_grid = sol.ell[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
+            m_next = a*(1+par.r)
+            ell_interp = tools.interp_linear_1d(m_next_grid, ell_next_grid, m_next)
+            MU = ell_interp**par.nu
+            adj_EMU += MU*par.eps_w[ii_eps]/wage
+        return adj_EMU
     
 
 
@@ -260,21 +279,25 @@ class Model():
         sim = self.sim
 
         c = sim.c[:,:-1]
+        ell = sim.ell[:,:-1]
+        wage_sim = sim.wage[:,:-1]
         c_next = sim.c[:,1:]
         s = sim.S.max(axis=1)
 
         # shape
         shape = c.shape
 
-        sim.Delta = np.zeros(shape)
-        sim.epsilon = np.zeros(shape)
+        sim.Delta_c = np.zeros(shape) + np.nan
+        sim.epsilon_c = np.zeros(shape) + np.nan
+        sim.Delta_ell = np.zeros(shape) + np.nan
+        sim.epsilon_ell = np.zeros(shape) + np.nan
 
         # Check when budget constraint bounds
         end_of_period_assets = (sim.m/(1+par.r))[:,1:].reshape(shape)
         non_bc =(end_of_period_assets>bc_limit).reshape(shape)
 
         for type in range(par.Ntypes):
-            for edu in range(par.Smax):
+            for edu in range(par.Smax+1):
                 index = (s==edu)*(sim.type == type)
                 current_c = c[index]
                 current_a = end_of_period_assets[index]
@@ -286,18 +309,39 @@ class Model():
                     else:
                         EMU = sol.EMU[type, t, 1, edu, par.Ba:, 0]
                         a_grid = par.a_grid
+                        
+                        # Labor euler error - depends on wage shock 
+                        adj_EMUell = sol.adj_EMUell[type, t, 1, edu, par.Ba:,0]
+                        for i_eps,eps in enumerate(par.eps_grid):
+                            index_l = index*(sim.wage_shock[:,t] == i_eps)
+                            #wage = wage_func(edu, t, type, eps, par)
+                            adj_EMUell_interp = tools.interp_linear_1d(a_grid, adj_EMUell, end_of_period_assets[index_l, t])
 
+                            euler_error_ell = (par.beta*(1+par.r)*adj_EMUell_interp)**(1/par.nu) - ell[index_l,t]
+                            sim.Delta_ell[index_l,t] = euler_error_ell
+                            sim.epsilon_ell[index_l, t] = np.log10(np.abs(euler_error_ell)/ell[index_l,t])
+
+                    # consumption euler - does not depend on wage shock
                     EMU_interp = tools.interp_linear_1d(a_grid, EMU, (current_a)[:,t])
                     euler_error = self.inv_marginal_util(par.beta*(1+par.r)*EMU_interp) - current_c[:,t]
 
                     # save euler errorsfor i,j
-                    sim.Delta[index, t] = euler_error
-                    sim.epsilon[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
+                    sim.Delta_c[index, t] = euler_error
+                    sim.epsilon_c[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
+                    
+
+
+        # check MRS - holds at all times when working
+        epsilon_MRS = (par.vartheta/wage_sim)*ell**par.nu - c**(-par.rho)
 
         # return avg. euler over time, avg. relative euler over time
-        Delta_time = [sim.Delta[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
-        epsilon_time = [sim.epsilon[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
-        return Delta_time, epsilon_time
+        Delta_time_c = [sim.Delta_c[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        epsilon_time_c = [sim.epsilon_c[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        Delta_time_ell = [sim.Delta_ell[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        epsilon_time_ell = [sim.epsilon_ell[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+
+
+        return Delta_time_c, epsilon_time_c, Delta_time_ell, epsilon_time_ell, epsilon_MRS
 
 
 

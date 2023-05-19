@@ -10,6 +10,9 @@ def EGM_step(t,i_type,i_S,model):
     marginal_util = model.marginal_util
     inv_marginal_util = model.inv_marginal_util
 
+    #pre-compute expected marginal utilities
+    adj_EMUell = model.adj_exp_MUell(i_type,t+1,1,i_S,par.a_grid)
+    EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
     
     for i_eps,eps in enumerate(par.eps_grid): 
 
@@ -20,7 +23,7 @@ def EGM_step(t,i_type,i_S,model):
         wage = wage_func(i_S,t,i_type,eps, par)
 
         # expected marginal utility in next period by end of period assets
-        EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
+        #EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
         c_endo = inv_marginal_util(par.beta*(1+par.r)*EMU) # consumption from Euler
         ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
         m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
@@ -53,6 +56,7 @@ def EGM_step(t,i_type,i_S,model):
 
         # used for computing Euler errors
         sol.EMU[i_type, t, 1, i_S, par.Ba:, i_eps] = EMU
+        sol.adj_EMUell[i_type, t, 1, i_S, par.Ba:, i_eps] = wage*adj_EMUell
 
     # compute value function
     v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
