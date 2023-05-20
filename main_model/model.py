@@ -180,11 +180,6 @@ class Model():
         par = self.par
         return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu)
     
-
-    def util_last(self, ell, w,a):
-        c = ell*w+a
-        return np.array(self.util_work(c, ell))
-    
     def marginal_util(self, c):
         par = self.par
         return c**-par.rho
@@ -265,7 +260,7 @@ class Model():
             m_next = a*(1+par.r)
             ell_interp = tools.interp_linear_1d(m_next_grid, ell_next_grid, m_next)
             MU = ell_interp**par.nu
-            adj_EMU += MU*par.eps_w[ii_eps]/wage
+            adj_EMU += (MU*par.eps_w[ii_eps])/wage
         return adj_EMU
     
 
@@ -301,6 +296,8 @@ class Model():
                 index = (s==edu)*(sim.type == type)
                 current_c = c[index]
                 current_a = end_of_period_assets[index]
+                if current_a.size > 0:
+                    x=1
 
                 for t in range(par.Tmax-1):
                     if t < edu:
@@ -314,9 +311,8 @@ class Model():
                         adj_EMUell = sol.adj_EMUell[type, t, 1, edu, par.Ba:,0]
                         for i_eps,eps in enumerate(par.eps_grid):
                             index_l = index*(sim.wage_shock[:,t] == i_eps)
-                            #wage = wage_func(edu, t, type, eps, par)
-                            adj_EMUell_interp = tools.interp_linear_1d(a_grid, adj_EMUell, end_of_period_assets[index_l, t])
-
+                            wage = wage_func(edu, t, type, eps, par)
+                            adj_EMUell_interp = wage*tools.interp_linear_1d(a_grid, adj_EMUell, end_of_period_assets[index_l, t])
                             euler_error_ell = (par.beta*(1+par.r)*adj_EMUell_interp)**(1/par.nu) - ell[index_l,t]
                             sim.Delta_ell[index_l,t] = euler_error_ell
                             sim.epsilon_ell[index_l, t] = np.log10(np.abs(euler_error_ell)/ell[index_l,t])

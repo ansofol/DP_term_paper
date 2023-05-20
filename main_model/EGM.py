@@ -28,7 +28,6 @@ def EGM_step(t,i_type,i_S,model):
         ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
         m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
 
-
         # interpolate back to exogenous grid
         c_exo = tools.interp_linear_1d(m_endo, c_endo, par.a_grid)
         ell_exo = tools.interp_linear_1d(m_endo, ell_endo, par.a_grid)
@@ -54,14 +53,14 @@ def EGM_step(t,i_type,i_S,model):
         sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
         sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
 
-        # used for computing Euler errors
+        # Exp. margunal utility in next period (used for computing Euler errors)
         sol.EMU[i_type, t, 1, i_S, par.Ba:, i_eps] = EMU
-        sol.adj_EMUell[i_type, t, 1, i_S, par.Ba:, i_eps] = wage*adj_EMUell
+        sol.adj_EMUell[i_type, t, 1, i_S, par.Ba:, i_eps] = adj_EMUell
 
     # compute value function
     v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
     EV_next = v_next_vec@par.eps_w
-    m_next = a_exo*(1+par.r) #### OBS: changed this from par.a_grid bc I forgot i had changed what the grids meant
+    m_next = a_exo*(1+par.r) 
     v_next = tools.interp_linear_1d(sol.m[i_type, t+1, 1, i_S, par.Ba:, i_eps], EV_next, m_next)
     util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
     sol.V[i_type, t, 1, i_S, par.Ba:, :] = np.repeat(util, par.neps).reshape(par.Na, par.neps)
