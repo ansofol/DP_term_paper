@@ -20,6 +20,8 @@ class Model():
 
         par = self.par
 
+        par.easy_par = False # set parameters so last period is analytically solvable
+
         # types
         # there are four types :)
         par.Ntypes = 4
@@ -84,6 +86,13 @@ class Model():
         par = self.par
         sol = self.sol
         sim = self.sim
+
+        # Update parameters if solution is analytical
+        par.beta = 0.98
+        par.r = 1/par.beta - 1
+        par.kappa = 1
+        par.rho = 1
+        par.nu = 1 
 
         #### grids ###
 
@@ -193,11 +202,17 @@ class Model():
 
         c = x[0]
         ell =  x[1]
-
-        uc = (1/(1-par.rho))*c**(1-par.rho)
-        dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
         a_next = (a + wage*ell - c)*(1+par.r)
-        retire = (1/(1-par.rho))*a_next**(1-par.rho)
+
+        if par.rho == 1:
+            uc = np.log(c)
+            retire = np.log(a_next)
+        else:
+            uc = (1/(1-par.rho))*c**(1-par.rho)
+            retire = (1/(1-par.rho))*a_next**(1-par.rho)
+            
+        dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
+
         return  uc - dul + par.beta*par.kappa*retire
 
     def jac_last(self, x, a, wage):
@@ -212,22 +227,35 @@ class Model():
 
     # solve last period
     def solve_last_v(self, idx):
+
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = wage_func(i_S,t,i_type,par.eps_grid[i_eps], par)
-        
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-        obj = lambda x: -self.last_util(x, a,wage)
-        obj_jac = lambda x: -self.jac_last(x, a, wage)
 
-        def bc(x):
-            c = x[0]
-            ell = x[1]
-            bc = a + wage*ell - c
-            return bc
-        constr = {'fun': bc, 'type':'ineq'}
+        if self.par.easy_par:
+            c = (1/2*a + np.sqrt((0.5*a)*(0.5*a) + 2*wage*wage/par.vartheta))/2
+            ell = wage/par.vartheta*1/c
+            x = (c,ell)
+            V = self.last_util(x, a,wage)
 
-        res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
+            res = SimpleNamespace()
+            res.x = x
+            res.fun = V
+            res.success = True
+
+        else:        
+            obj = lambda x: -self.last_util(x, a,wage)
+            obj_jac = lambda x: -self.jac_last(x, a, wage)
+
+            def bc(x):
+                c = x[0]
+                ell = x[1]
+                bc = a + wage*ell - c
+                return bc
+            constr = {'fun': bc, 'type':'ineq'}
+
+            res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
         return res
     
     def exp_MU(self, i_type,t,i_work,i_S,a):

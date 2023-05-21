@@ -62,7 +62,10 @@ def EGM_step(t,i_type,i_S,model):
     EV_next = v_next_vec@par.eps_w
     m_next = a_exo*(1+par.r) 
     v_next = tools.interp_linear_1d(sol.m[i_type, t+1, 1, i_S, par.Ba:, i_eps], EV_next, m_next)
-    util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    if par.rho == 1:
+        util = np.log(c_exo) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    else:
+        util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
     sol.V[i_type, t, 1, i_S, par.Ba:, :] = np.repeat(util, par.neps).reshape(par.Na, par.neps)
 
 

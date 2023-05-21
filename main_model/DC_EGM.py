@@ -125,7 +125,10 @@ def transfer(type,par):
         return par.phi_low
 
 def util(c,par): 
-    return c**(1-par.rho)/(1-par.rho)
+    if par.rho == 1:
+        return np.log(c)
+    else:
+        return c**(1-par.rho)/(1-par.rho)
 
 """
 def wage_func(i_S, t, theta, eta, par):
