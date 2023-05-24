@@ -88,11 +88,12 @@ class Model():
         sim = self.sim
 
         # Update parameters if solution is analytical
-        par.beta = 0.98
-        par.r = 1/par.beta - 1
-        par.kappa = 1
-        par.rho = 1
-        par.nu = 1 
+        if par.easy_par:
+            par.beta = 0.98
+            par.r = 1/par.beta - 1
+            par.kappa = 1
+            par.rho = 1
+            par.nu = 1 
 
         #### grids ###
 
@@ -210,7 +211,7 @@ class Model():
         else:
             uc = (1/(1-par.rho))*c**(1-par.rho)
             retire = (1/(1-par.rho))*a_next**(1-par.rho)
-            
+
         dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
 
         return  uc - dul + par.beta*par.kappa*retire
