@@ -100,5 +100,54 @@ def reset_sim(sim,model):
 
     
 
+##  Extremely ambitious estimation thing :))))
+def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
 
+    moment_data = moments(data,model)
+
+    setattr(model.par, "dist", par_est)
+    setattr(model.par, "phi_high", phi_high)
+    print(par_est)
+
+    model.set_grids()
+    model.solve()
+
+    sol = model.sol
+    sim = model.sim
+    par = model.par 
+
+
+    moment_sim = np.zeros(2*(model.par.Smax+2))
+    par.random.seed(2023)
+    for i in range(par.Ns):
+        reset_sim(sim, model)
+        simulate(sim,sol,par)
+        moment_sim +=  moments(sim,model)/model.par.Ns
+    A = moment_data - moment_sim
+    print(f'Moment_sim is {np.round(moment_sim,4)}')
+    print(f'Moment_data is {np.round(moment_data,4)}')
+
+ 
+
+    if weighting_matrix == "I": 
+        B  = np.eye(2*(par.Smax+2))
+        print(A @ B @ A.T)
+        return A @ B @ A.T
+        
     
+    else: 
+        B = weighting_matrix 
+        return A @ B @ A.T 
+    
+
+def obj_transfer(x, data,model,shares, weighting_matrix): 
+    
+    p1 = shares[0]*x[0]
+    p2 = shares[1]*x[1]
+    p3 = shares[0] - p1
+    p4 = shares[1] - p2
+    p_list = [p1,p2,p3,p4]
+
+    phi_high = x[-1]
+
+    return  criterion_transfer(p_list, phi_high, data, model, weighting_matrix)

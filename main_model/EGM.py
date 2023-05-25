@@ -10,6 +10,9 @@ def EGM_step(t,i_type,i_S,model):
     marginal_util = model.marginal_util
     inv_marginal_util = model.inv_marginal_util
 
+    #pre-compute expected marginal utilities
+    adj_EMUell = model.adj_exp_MUell(i_type,t+1,1,i_S,par.a_grid)
+    EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
     
     for i_eps,eps in enumerate(par.eps_grid): 
 
@@ -20,11 +23,10 @@ def EGM_step(t,i_type,i_S,model):
         wage = wage_func(i_S,t,i_type,eps, par)
 
         # expected marginal utility in next period by end of period assets
-        EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
+        #EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
         c_endo = inv_marginal_util(par.beta*(1+par.r)*EMU) # consumption from Euler
         ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
         m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
-
 
         # interpolate back to exogenous grid
         c_exo = tools.interp_linear_1d(m_endo, c_endo, par.a_grid)
@@ -51,15 +53,19 @@ def EGM_step(t,i_type,i_S,model):
         sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
         sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
 
-        # used for computing Euler errors
+        # Exp. margunal utility in next period (used for computing Euler errors)
         sol.EMU[i_type, t, 1, i_S, par.Ba:, i_eps] = EMU
+        sol.adj_EMUell[i_type, t, 1, i_S, par.Ba:, i_eps] = adj_EMUell
 
     # compute value function
     v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
     EV_next = v_next_vec@par.eps_w
-    m_next = a_exo*(1+par.r) #### OBS: changed this from par.a_grid bc I forgot i had changed what the grids meant
+    m_next = a_exo*(1+par.r) 
     v_next = tools.interp_linear_1d(sol.m[i_type, t+1, 1, i_S, par.Ba:, i_eps], EV_next, m_next)
-    util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    if par.rho == 1:
+        util = np.log(c_exo) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    else:
+        util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
     sol.V[i_type, t, 1, i_S, par.Ba:, :] = np.repeat(util, par.neps).reshape(par.Na, par.neps)
 
 

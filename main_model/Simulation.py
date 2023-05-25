@@ -19,6 +19,7 @@ def simulate(sim,sol,par):
     u_choice = random.rand(par.N,par.Smax) # Used for education choices 
 
     wage_shock = random.choice(par.neps,(par.N,par.Tsim),replace=True,p = par.eps_w/np.sum(par.eps_w))
+    sim.wage_shock = wage_shock
 
     
     for t in range(par.Tsim): 
@@ -26,6 +27,9 @@ def simulate(sim,sol,par):
             shock = wage_shock[i,t]
             choice = 0
             type = sim.type[i]
+            
+            edu = int(np.max(sim.S[i]))
+            sim.wage[i,t] = wage_func(edu, t, type, par.eps_grid[shock], par)
 
             if t <= par.Smax -1: # Periodes involving discrete decision for students
                 # Find choices for people who study 

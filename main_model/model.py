@@ -20,6 +20,8 @@ class Model():
 
         par = self.par
 
+        par.easy_par = False # set parameters so last period is analytically solvable
+
         # types
         # there are four types :)
         par.Ntypes = 4
@@ -58,7 +60,7 @@ class Model():
         par.Tmax = 10
 
         # grids
-        par.a_phi = 1.1
+        par.a_phi = 1.3
         par.a_min = 1e-5 #check this later
         par.a_max = 1000
         par.Na = 200
@@ -84,6 +86,14 @@ class Model():
         par = self.par
         sol = self.sol
         sim = self.sim
+
+        # Update parameters if solution is analytical
+        if par.easy_par:
+            par.beta = 0.98
+            par.r = 1/par.beta - 1
+            par.kappa = 1
+            par.rho = 1
+            par.nu = 1 
 
         #### grids ###
 
@@ -116,6 +126,7 @@ class Model():
         sol.m = np.zeros(shape) + np.nan
         sol.a = np.zeros(shape) + np.nan
         sol.EMU = np.zeros(shape) + np.nan
+        sol.adj_EMUell = np.zeros(shape) + np.nan
 
         ### Simulation grid ### 
         shape_sim = (par.N,par.Tsim)
@@ -123,6 +134,7 @@ class Model():
         sim.S = np.zeros(shape_sim) 
         sim.ell = np.zeros(shape_sim) 
         sim.m = np.zeros(shape_sim) 
+        sim.wage = np.zeros(shape_sim)
         sim.type = np.zeros(par.N)
         
         par.random.seed(1687) # Simulation seed
@@ -178,11 +190,6 @@ class Model():
         par = self.par
         return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu)
     
-
-    def util_last(self, ell, w,a):
-        c = ell*w+a
-        return np.array(self.util_work(c, ell))
-    
     def marginal_util(self, c):
         par = self.par
         return c**-par.rho
@@ -196,11 +203,17 @@ class Model():
 
         c = x[0]
         ell =  x[1]
-
-        uc = (1/(1-par.rho))*c**(1-par.rho)
-        dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
         a_next = (a + wage*ell - c)*(1+par.r)
-        retire = (1/(1-par.rho))*a_next**(1-par.rho)
+
+        if par.rho == 1:
+            uc = np.log(c)
+            retire = np.log(a_next)
+        else:
+            uc = (1/(1-par.rho))*c**(1-par.rho)
+            retire = (1/(1-par.rho))*a_next**(1-par.rho)
+
+        dul = par.vartheta*(1/(1+par.nu))*ell**(1+par.nu)
+
         return  uc - dul + par.beta*par.kappa*retire
 
     def jac_last(self, x, a, wage):
@@ -215,22 +228,35 @@ class Model():
 
     # solve last period
     def solve_last_v(self, idx):
+
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = wage_func(i_S,t,i_type,par.eps_grid[i_eps], par)
-        
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
-        obj = lambda x: -self.last_util(x, a,wage)
-        obj_jac = lambda x: -self.jac_last(x, a, wage)
 
-        def bc(x):
-            c = x[0]
-            ell = x[1]
-            bc = a + wage*ell - c
-            return bc
-        constr = {'fun': bc, 'type':'ineq'}
+        if self.par.easy_par:
+            c = (1/2*a + np.sqrt((0.5*a)*(0.5*a) + 2*wage*wage/par.vartheta))/2
+            ell = wage/par.vartheta*1/c
+            x = (c,ell)
+            V = self.last_util(x, a,wage)
 
-        res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
+            res = SimpleNamespace()
+            res.x = x
+            res.fun = V
+            res.success = True
+
+        else:        
+            obj = lambda x: -self.last_util(x, a,wage)
+            obj_jac = lambda x: -self.jac_last(x, a, wage)
+
+            def bc(x):
+                c = x[0]
+                ell = x[1]
+                bc = a + wage*ell - c
+                return bc
+            constr = {'fun': bc, 'type':'ineq'}
+
+            res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
         return res
     
     def exp_MU(self, i_type,t,i_work,i_S,a):
@@ -242,12 +268,29 @@ class Model():
         EMU = 0
         for ii_eps, eps in enumerate(par.eps_grid):
             m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
-            c_next_grid = sol.c[i_type, t,1,i_S,par.Ba:,ii_eps] # next period consumption
+            c_next_grid = sol.c[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
             m_next = a*(1+par.r)
             c_interp = tools.interp_linear_1d(m_next_grid, c_next_grid, m_next)
             MU = self.marginal_util(c_interp)
             EMU += MU*par.eps_w[ii_eps]
         return EMU
+    
+    def adj_exp_MUell(self, i_type,t,i_work,i_S,a):
+        """
+        Expected marginal utility in period t (quadrature over epsilon shocks), adjusted for wage
+        """
+        par = self.par
+        sol = self.sol
+        adj_EMU = 0
+        for ii_eps, eps in enumerate(par.eps_grid):
+            wage = wage_func(i_S, t, i_type, eps, par)
+            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
+            ell_next_grid = sol.ell[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
+            m_next = a*(1+par.r)
+            ell_interp = tools.interp_linear_1d(m_next_grid, ell_next_grid, m_next)
+            MU = ell_interp**par.nu
+            adj_EMU += (MU*par.eps_w[ii_eps])/wage
+        return adj_EMU
     
 
 
@@ -260,24 +303,30 @@ class Model():
         sim = self.sim
 
         c = sim.c[:,:-1]
+        ell = sim.ell[:,:-1]
+        wage_sim = sim.wage[:,:-1]
         c_next = sim.c[:,1:]
         s = sim.S.max(axis=1)
 
         # shape
         shape = c.shape
 
-        sim.Delta = np.zeros(shape)
-        sim.epsilon = np.zeros(shape)
+        sim.Delta_c = np.zeros(shape) + np.nan
+        sim.epsilon_c = np.zeros(shape) + np.nan
+        sim.Delta_ell = np.zeros(shape) + np.nan
+        sim.epsilon_ell = np.zeros(shape) + np.nan
 
         # Check when budget constraint bounds
         end_of_period_assets = (sim.m/(1+par.r))[:,1:].reshape(shape)
         non_bc =(end_of_period_assets>bc_limit).reshape(shape)
 
         for type in range(par.Ntypes):
-            for edu in range(par.Smax):
+            for edu in range(par.Smax+1):
                 index = (s==edu)*(sim.type == type)
                 current_c = c[index]
                 current_a = end_of_period_assets[index]
+                if current_a.size > 0:
+                    x=1
 
                 for t in range(par.Tmax-1):
                     if t < edu:
@@ -286,18 +335,38 @@ class Model():
                     else:
                         EMU = sol.EMU[type, t, 1, edu, par.Ba:, 0]
                         a_grid = par.a_grid
+                        
+                        # Labor euler error - depends on wage shock 
+                        adj_EMUell = sol.adj_EMUell[type, t, 1, edu, par.Ba:,0]
+                        for i_eps,eps in enumerate(par.eps_grid):
+                            index_l = index*(sim.wage_shock[:,t] == i_eps)
+                            wage = wage_func(edu, t, type, eps, par)
+                            adj_EMUell_interp = wage*tools.interp_linear_1d(a_grid, adj_EMUell, end_of_period_assets[index_l, t])
+                            euler_error_ell = (par.beta*(1+par.r)*adj_EMUell_interp)**(1/par.nu) - ell[index_l,t]
+                            sim.Delta_ell[index_l,t] = euler_error_ell
+                            sim.epsilon_ell[index_l, t] = np.log10(np.abs(euler_error_ell)/ell[index_l,t])
 
+                    # consumption euler - does not depend on wage shock
                     EMU_interp = tools.interp_linear_1d(a_grid, EMU, (current_a)[:,t])
                     euler_error = self.inv_marginal_util(par.beta*(1+par.r)*EMU_interp) - current_c[:,t]
 
                     # save euler errorsfor i,j
-                    sim.Delta[index, t] = euler_error
-                    sim.epsilon[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
+                    sim.Delta_c[index, t] = euler_error
+                    sim.epsilon_c[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
+                    
+
+
+        # check MRS - holds at all times when working
+        epsilon_MRS = (par.vartheta/wage_sim)*ell**par.nu - c**(-par.rho)
 
         # return avg. euler over time, avg. relative euler over time
-        Delta_time = [sim.Delta[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
-        epsilon_time = [sim.epsilon[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
-        return Delta_time, epsilon_time
+        Delta_time_c = [sim.Delta_c[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        epsilon_time_c = [sim.epsilon_c[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        Delta_time_ell = [sim.Delta_ell[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+        epsilon_time_ell = [sim.epsilon_ell[:,t][non_bc[:,t]].mean() for t in range(par.Tmax-1)]
+
+
+        return Delta_time_c, epsilon_time_c, Delta_time_ell, epsilon_time_ell, epsilon_MRS
 
 
 
