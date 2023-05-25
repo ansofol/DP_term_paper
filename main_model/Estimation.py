@@ -4,7 +4,7 @@ from scipy import optimize as opt
 import copy as copy
 
 
-def estimate(data,model,geuss,weighting_matrix="I"): 
+def estimate(obj,data,model,geuss,weighting_matrix="I"): 
 
     data_true = copy.deepcopy(data)
     share_Rich = np.sum((data_true.type == 0) + (data_true.type == 2)) / len(data_true.type) 
@@ -14,11 +14,15 @@ def estimate(data,model,geuss,weighting_matrix="I"):
 
     object = lambda x: obj(x,data_true,model=model,shares = list_shares, weighting_matrix=weighting_matrix)
 
-    result = opt.minimize(object, geuss, method = "Nelder-Mead")
+    # callback func
+    xs = []
+    def callback(result):
+        xs.append(result)
+
+    result = opt.minimize(object, geuss, method = "Nelder-Mead", callback=callback)
     #result = opt.minimize(object, geuss, method = "Powell")
 
-    return result
-
+    return result, xs
 
 def obj(x,data,model,shares, weighting_matrix): 
     
@@ -151,3 +155,19 @@ def obj_transfer(x, data,model,shares, weighting_matrix):
     phi_high = x[-1]
 
     return  criterion_transfer(p_list, phi_high, data, model, weighting_matrix)
+
+
+def estimate_transfer(data,model,geuss,weighting_matrix="I"): 
+
+    data_true = copy.deepcopy(data)
+    share_Rich = np.sum((data_true.type == 0) + (data_true.type == 2)) / len(data_true.type) 
+    share_Poor = 1-share_Rich
+    
+    list_shares = [share_Rich,share_Poor]
+
+    object = lambda x: obj_transfer(x,data_true,model=model,shares = list_shares, weighting_matrix=weighting_matrix)
+
+    result = opt.minimize(object, geuss, method = "Nelder-Mead")
+    #result = opt.minimize(object, geuss, method = "Powell")
+
+    return result

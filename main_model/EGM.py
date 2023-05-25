@@ -23,7 +23,6 @@ def EGM_step(t,i_type,i_S,model):
         wage = wage_func(i_S,t,i_type,eps, par)
 
         # expected marginal utility in next period by end of period assets
-        #EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
         c_endo = inv_marginal_util(par.beta*(1+par.r)*EMU) # consumption from Euler
         ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
         m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
