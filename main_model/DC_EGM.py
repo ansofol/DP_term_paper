@@ -56,9 +56,9 @@ def EGM_DC(i,t,sol,par):
 
         m_next = (1+par.r)*par.a_grid + transfer(i,par)
 
-        V_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,par.Ba:,0],sol.V[i,t+1,0,t+1,par.Ba:,0],m_next)
+        V_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,:,0],sol.V[i,t+1,0,t+1,:,0],m_next)
 
-        c_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,par.Ba:,0],sol.c[i,t+1,0,t+1,par.Ba:,0],m_next) 
+        c_next_study = tools.interp_linear_1d(sol.m[i,t+1,0,t+1,:,0],sol.c[i,t+1,0,t+1,:,0],m_next) 
 
         margu_study = marg_u(c_next_study,par) 
         #assert np.mean(np.isnan(margu_study)) ==0

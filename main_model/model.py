@@ -164,7 +164,7 @@ class Model():
                                     sol.ell[idx] = ell
                                     sol.a[idx] = a + wage*ell - c
                                     sol.m[idx] = a
-                                    sol.V[idx] = res.fun
+                                    sol.V[idx] = -res.fun
                                     sol.dV[idx] = -par.beta*par.kappa*(1+par.r)*((1+par.r)*(a+wage*ell-c))**(-par.rho)
                                 else:
                                     print(f'Did not converge at {idx}')
