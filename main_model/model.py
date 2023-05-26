@@ -177,6 +177,22 @@ class Model():
                         EGM.EGM_step(t, i_type, i_S, self) # EGM in working stage
                 if t < par.Smax:
                     EGM_DC(i_type, t, sol, par)
+    
+
+    def solve_study(self):
+        ''' 
+        Solves the study stage only, used to speed up estimation 
+        Requires a full solution to working
+        '''
+
+        par = self.par 
+        sol = self.sol 
+
+        for t in range(par.Smax-1,-1,-1):
+            for i_type in range(par.Ntypes): 
+                EGM_DC(i_type,t,sol,par)
+
+
 
 
     #####################
