@@ -1,0 +1,71 @@
+Timer unit: 1e-07 s
+
+Total time: 0.0085297 s
+File: c:\Users\sofie\OneDrive\Dokumenter\Skole\DynamicProgramming\DP_term_paper\main_model\EGM.py
+Function: EGM_step at line 6
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+     6                                           def EGM_step(t,i_type,i_S,model):
+     7                                               
+     8         1         28.0     28.0      0.0      par = model.par
+     9         1         16.0     16.0      0.0      sol = model.sol
+    10         1         15.0     15.0      0.0      marginal_util = model.marginal_util
+    11         1         14.0     14.0      0.0      inv_marginal_util = model.inv_marginal_util
+    12                                           
+    13                                               #pre-compute expected marginal utilities
+    14         1       3478.0   3478.0      4.1      adj_EMUell = model.adj_exp_MUell(i_type,t+1,1,i_S,par.a_grid)
+    15         1       2015.0   2015.0      2.4      EMU = model.exp_MU(i_type,t+1,1,i_S,par.a_grid)
+    16                                               
+    17         6        306.0     51.0      0.4      for i_eps,eps in enumerate(par.eps_grid): 
+    18                                           
+    19                                                   # allocate space to store edogenous grids
+    20         5       1942.0    388.4      2.3          c_endo = np.zeros(par.Na) + np.nan
+    21         5        607.0    121.4      0.7          ell_endo = np.zeros(par.Na) + np.nan
+    22         5       1249.0    249.8      1.5          m_endo = np.zeros(par.Na) + np.nan
+    23         5        890.0    178.0      1.0          wage = wage_func(i_S,t,i_type,eps, par)
+    24                                           
+    25                                                   # expected marginal utility in next period by end of period assets
+    26         5       1668.0    333.6      2.0          c_endo = inv_marginal_util(par.beta*(1+par.r)*EMU) # consumption from Euler
+    27         5       2173.0    434.6      2.5          ell_endo = ell_from_FOC(c_endo, wage, par) # labor from intra period FOC
+    28         5        458.0     91.6      0.5          m_endo = par.a_grid - wage*ell_endo + c_endo # endogenous grid
+    29                                           
+    30                                                   # interpolate back to exogenous grid
+    31         5       1519.0    303.8      1.8          c_exo = tools.interp_linear_1d(m_endo, c_endo, par.a_grid)
+    32         5        891.0    178.2      1.0          ell_exo = tools.interp_linear_1d(m_endo, ell_endo, par.a_grid)
+    33         5        386.0     77.2      0.5          a_exo = par.a_grid + wage*ell_exo - c_exo
+    34                                             
+    35                                                   # check budget constraint
+    36      1005      14889.0     14.8     17.5          for i_a, a in enumerate(par.a_grid):
+    37      1000      16206.0     16.2     19.0              if a_exo[i_a] < 0:
+    38        19        216.0     11.4      0.3                  a_exo[i_a] = 0
+    39                                           
+    40                                                           # ensure intra-period FOC holds
+    41        19        287.0     15.1      0.3                  intra_FOC = lambda c: a + wage*ell_from_FOC(c, wage, par) - c 
+    42        19      13630.0    717.4     16.0                  root = optimize.root_scalar(intra_FOC, bracket=(1e-12, 20000), x0=a+1e-12) #maybe this bracket should be adjusted to something a bit more general
+    43        19        217.0     11.4      0.3                  assert root.converged
+    44        19        241.0     12.7      0.3                  c_exo[i_a] = root.root
+    45        19        499.0     26.3      0.6                  ell_exo[i_a] = ell_from_FOC(root.root, wage, par) 
+    46                                           
+    47         5       3780.0    756.0      4.4          assert np.all(a_exo >=0)
+    48                                           
+    49                                                   # interpolate back to exogenous grids 
+    50         5       7539.0   1507.8      8.8          sol.c[i_type, t, 1, i_S, par.Ba:, i_eps] = c_exo 
+    51         5       2141.0    428.2      2.5          sol.ell[i_type, t, 1, i_S, par.Ba:, i_eps] = ell_exo 
+    52         5        766.0    153.2      0.9          sol.a[i_type, t, 1, i_S, par.Ba:, i_eps] = a_exo
+    53         5        401.0     80.2      0.5          sol.m[i_type, t, 1, i_S, par.Ba:, i_eps] = par.a_grid
+    54                                           
+    55                                                   # Exp. margunal utility in next period (used for computing Euler errors)
+    56         5        376.0     75.2      0.4          sol.EMU[i_type, t, 1, i_S, par.Ba:, i_eps] = EMU
+    57         5        376.0     75.2      0.4          sol.adj_EMUell[i_type, t, 1, i_S, par.Ba:, i_eps] = adj_EMUell
+    58                                           
+    59                                               # compute value function
+    60         1         46.0     46.0      0.1      v_next_vec = sol.V[i_type, t+1, 1, i_S, par.Ba:, :]
+    61         1        442.0    442.0      0.5      EV_next = v_next_vec@par.eps_w
+    62         1        193.0    193.0      0.2      m_next = a_exo*(1+par.r) 
+    63         1       2457.0   2457.0      2.9      v_next = tools.interp_linear_1d(sol.m[i_type, t+1, 1, i_S, par.Ba:, i_eps], EV_next, m_next)
+    64         1         40.0     40.0      0.0      if par.rho == 1:
+    65                                                   util = np.log(c_exo) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    66                                               else:
+    67         1       2085.0   2085.0      2.4          util = c_exo**(1-par.rho)/(1-par.rho) - par.vartheta*ell_exo**(1+par.nu)/(1+par.nu) + par.beta*v_next
+    68         1        815.0    815.0      1.0      sol.V[i_type, t, 1, i_S, par.Ba:, :] = np.repeat(util, par.neps).reshape(par.Na, par.neps)
