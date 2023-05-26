@@ -113,13 +113,12 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
     setattr(model.par, "phi_high", phi_high)
     print(par_est)
 
-    model.set_grids()
-    model.solve()
+    #model.set_grids()
+    model.solve_study()
 
     sol = model.sol
     sim = model.sim
     par = model.par 
-
 
     moment_sim = np.zeros(2*(model.par.Smax+2))
     par.random.seed(2023)
@@ -130,6 +129,7 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
     A = moment_data - moment_sim
     print(f'Moment_sim is {np.round(moment_sim,4)}')
     print(f'Moment_data is {np.round(moment_data,4)}')
+    print(par.phi_high)
 
  
 
@@ -146,8 +146,8 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
 
 def obj_transfer(x, data,model,shares, weighting_matrix): 
     
-    p1 = shares[0]*x[0]
-    p2 = shares[1]*x[1]
+    p1 = shares[0]*np.abs(x[0])
+    p2 = shares[1]*np.abs(x[1])
     p3 = shares[0] - p1
     p4 = shares[1] - p2
     p_list = [p1,p2,p3,p4]
