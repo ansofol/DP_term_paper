@@ -1,0 +1,48 @@
+Timer unit: 1e-07 s
+
+Total time: 352.859 s
+File: c:\Users\sofie\OneDrive\Dokumenter\Skole\DynamicProgramming\DP_term_paper\main_model\model.py
+Function: solve at line 140
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   140                                               def solve(self):
+   141         1         26.0     26.0      0.0          par = self.par
+   142         1         24.0     24.0      0.0          sol = self.sol
+   143                                           
+   144                                                   
+   145        46        374.0      8.1      0.0          for t in range(par.Tmax-1, -1, -1):
+   146       225       3239.0     14.4      0.0              for i_type in range(par.Ntypes):
+   147      1440      43758.0     30.4      0.0                  for i_S, S in enumerate(par.S_grid):
+   148      1260      14856.0     11.8      0.0                      if t == par.Tmax-1: # solve last period one state at a time
+   149      5628      99610.0     17.7      0.0                          for i_a,a in enumerate(par.a_grid):
+   150     33600    1115291.0     33.2      0.0                              for i_eps, eps in enumerate(par.eps_grid):
+   151     28000     411112.0     14.7      0.0                                  idx =(i_type,t,1,i_S,par.Ba+i_a,i_eps)
+   152                                                                           
+   153                                                                           # leave no assets
+   154     28000    4454069.0    159.1      0.1                                  wage = wage_func(i_S,t,i_type,eps, par)
+   155     28000 3434063103.0 122645.1     97.3                                  res = self.solve_last_v(idx)
+   156                                           
+   157                                                                           #assert res.success
+   158                                           
+   159     28000    2568518.0     91.7      0.1                                  if res.success:
+   160     28000    1095104.0     39.1      0.0                                      ell = res.x[1]
+   161     28000     770317.0     27.5      0.0                                      c = res.x[0]
+   162                                           
+   163     28000     733593.0     26.2      0.0                                      sol.c[idx] = c
+   164     28000     510363.0     18.2      0.0                                      sol.ell[idx] = ell
+   165     28000     819904.0     29.3      0.0                                      sol.a[idx] = a + wage*ell - c
+   166     28000     397386.0     14.2      0.0                                      sol.m[idx] = a
+   167     28000    1369390.0     48.9      0.0                                      sol.V[idx] = res.fun
+   168     28000    1650337.0     58.9      0.0                                      sol.dV[idx] = -par.beta*par.kappa*(1+par.r)*((1+par.r)*(a+wage*ell-c))**(-par.rho)
+   169                                                                           else:
+   170                                                                               print(f'Did not converge at {idx}')
+   171                                                                               print(a)
+   172                                                                               print(wage)
+   173                                                                               assert res.success
+   174                                                                               # this becomes an issue if we allow for borrowing.
+   175                                                                               #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
+   176                                                               else:
+   177      1232   59320828.0  48150.0      1.7                          EGM.EGM_step(t, i_type, i_S, self) # EGM in working stage
+   178       180       1939.0     10.8      0.0                  if t < par.Smax:
+   179        24   19143308.0 797637.8      0.5                      EGM_DC(i_type, t, sol, par)
