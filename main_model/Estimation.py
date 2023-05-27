@@ -41,7 +41,7 @@ def criteria(par_est,data,model,weighting_matrix="I"):
     moment_data = moments(data,model)
 
     setattr(model.par, "dist", par_est)
-    print(par_est)
+    #print(par_est)
 
     #model.set_grids()
 
@@ -50,14 +50,16 @@ def criteria(par_est,data,model,weighting_matrix="I"):
     par = model.par 
 
     moment_sim = np.zeros(2*(model.par.Smax+2))
-    par.random.seed(2023)
+    seed_obj = np.random 
+    seed_obj.seed(2023)
+    par.random = seed_obj
     for i in range(par.Ns):
         reset_sim(sim, model)
         simulate(sim,sol,par)
         moment_sim +=  moments(sim,model)/model.par.Ns
     A = moment_data - moment_sim
-    print(f'Moment_sim is {np.round(moment_sim,4)}')
-    print(f'Moment_data is {np.round(moment_data,4)}')
+    #print(f'Moment_sim is {np.round(moment_sim,4)}')
+    #print(f'Moment_data is {np.round(moment_data,4)}')
 
  
     if weighting_matrix == "I": 
@@ -111,7 +113,7 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
 
     setattr(model.par, "dist", par_est)
     setattr(model.par, "phi_high", phi_high)
-    print(par_est)
+    #print(par_est)
 
     #model.set_grids()
     model.solve_study()
@@ -121,15 +123,19 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
     par = model.par 
 
     moment_sim = np.zeros(2*(model.par.Smax+2))
-    par.random.seed(2023)
+    
+    seed_obj = np.random 
+    seed_obj.seed(2023)
+    par.random = seed_obj
+
     for i in range(par.Ns):
         reset_sim(sim, model)
         simulate(sim,sol,par)
         moment_sim +=  moments(sim,model)/model.par.Ns
     A = moment_data - moment_sim
-    print(f'Moment_sim is {np.round(moment_sim,4)}')
-    print(f'Moment_data is {np.round(moment_data,4)}')
-    print(par.phi_high)
+    #print(f'Moment_sim is {np.round(moment_sim,4)}')
+    #print(f'Moment_data is {np.round(moment_data,4)}')
+    #print(par.phi_high)
 
  
 
@@ -146,8 +152,8 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
 
 def obj_transfer(x, data,model,shares, weighting_matrix): 
     
-    p1 = shares[0]*np.abs(x[0])
-    p2 = shares[1]*np.abs(x[1])
+    p1 = shares[0]*x[0]
+    p2 = shares[1]*x[1]
     p3 = shares[0] - p1
     p4 = shares[1] - p2
     p_list = [p1,p2,p3,p4]
@@ -167,7 +173,8 @@ def estimate_transfer(data,model,geuss,weighting_matrix="I"):
 
     object = lambda x: obj_transfer(x,data_true,model=model,shares = list_shares, weighting_matrix=weighting_matrix)
 
-    result = opt.minimize(object, geuss, method = "Nelder-Mead")
+    bounds = ((0,1),(0,1),(0,100))
+    result = opt.minimize(object, geuss, method = "Nelder-Mead",bounds=bounds)
     #result = opt.minimize(object, geuss, method = "Powell")
 
     return result
