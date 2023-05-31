@@ -34,9 +34,12 @@ def simulate(sim,sol,par):
                 sub_sample = sample & (edu == t)
 
                 V_study = tools.interp_linear_1d(sol.m[type,t,0,t,:,0], sol.V[type,t,0,t,:,0], m_study[sub_sample])
-                V_work = tools.interp_2d_vec(sol.m[type,t,1,t,par.Ba:,0], par.eps_grid, sol.V[type,t,1,t,par.Ba:,:], m_work[sub_sample], par.eps_grid[shock[sub_sample]])
+                
+                EV_next = sol.V[type,t,1,t,par.Ba:,:]@par.eps_w
+                EV_work = tools.interp_linear_1d(sol.m[type,t,1,t,par.Ba:,0], EV_next, m_work[sub_sample])
+                # V_work = tools.interp_2d_vec(sol.m[type,t,1,t,par.Ba:,0], par.eps_grid, sol.V[type,t,1,t,par.Ba:,:], m_work[sub_sample], par.eps_grid[shock[sub_sample]])
 
-                V = np.array([V_study, V_work])
+                V = np.array([V_study, EV_work])
                 p = ccp(V,par)
                 choice[sub_sample] = u_choice[sub_sample,t] < 1-p # Choice to continue to study
                 sim.S[sub_sample,t+1] += sim.S[sub_sample,t] + choice[sub_sample] # Change Education status
@@ -52,8 +55,15 @@ def simulate(sim,sol,par):
             for s_now in range(par.Smax+1): # loop through different edu levels
                 sample_work = work & (sim.type==type) & (edu==s_now)
 
-                sim.c[sample_work, t] = tools.interp_2d_vec(sol.m[type,t,1,s_now,par.Ba:,0], par.eps_grid, sol.c[type,t,1,s_now,par.Ba:,:], m_work[sample_work], par.eps_grid[shock[sample_work]])
-                sim.ell[sample_work, t] = tools.interp_2d_vec(sol.m[type,t,1,s_now,par.Ba:,0], par.eps_grid, sol.ell[type,t,1,s_now,par.Ba:,:], m_work[sample_work], par.eps_grid[shock[sample_work]])
+                sim.c[sample_work, t] = tools.interp_2d_vec(sol.m[type,t,1,s_now,par.Ba:,0], 
+                                                            par.eps_grid, sol.c[type,t,1,s_now,par.Ba:,:], 
+                                                            m_work[sample_work], 
+                                                            par.eps_grid[shock[sample_work]])
+                
+                sim.ell[sample_work, t] = tools.interp_2d_vec(sol.m[type,t,1,s_now,par.Ba:,0], 
+                                                              par.eps_grid, sol.ell[type,t,1,s_now,par.Ba:,:], 
+                                                              m_work[sample_work], 
+                                                              par.eps_grid[shock[sample_work]])
                 
                 income = m_work[sample_work] + sim.wage[sample_work, t]*sim.ell[sample_work,t]
 
