@@ -1,13 +1,23 @@
 from project_code import tools
 import numpy as np
-from scipy import optimize, interpolate
+from scipy import optimize
 from project_code.auxiliary_funcs import *
 
 def EGM_step(t,i_type,i_S,model):
+    """
+    This function computes the endogenous grids and value function for a given period and state in an
+    economic model.
+    
+    Args:
+      t: time period
+      i_type: The type index of the individual being considered in the model.
+      i_S: The level of education.
+      model: The model object containing the parameters, solution grids, and other information needed to
+    solve the economic model being considered.
+    """
     
     par = model.par
     sol = model.sol
-    marginal_util = model.marginal_util
     inv_marginal_util = model.inv_marginal_util
 
     #pre-compute expected marginal utilities
@@ -72,4 +82,15 @@ def EGM_step(t,i_type,i_S,model):
         sol.V[i_type, t, 1, i_S, par.Ba:, i_eps] = util 
 
 def ell_from_FOC(c, wage, par):
-    return ((wage/par.vartheta)*c**-par.rho)**(1/par.nu)
+    """
+    Computes labor supply as a function of consumption based on the intratemporal FOC.
+    Args:
+     c: consumption
+     wage: wage
+     par: object containing paramters.
+
+    Returns:
+     ell: labor supply
+    """
+    ell = ((wage/par.vartheta)*c**-par.rho)**(1/par.nu)
+    return ell
