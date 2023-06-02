@@ -1,5 +1,5 @@
 import numpy as np 
-from project_code.Simulation import simulate
+from Simulation import simulate
 from scipy import optimize as opt 
 import copy as copy
 
@@ -104,6 +104,9 @@ def reset_sim(sim,model):
         sim.type = np.zeros(shape_sim) 
         sim.m[:,0] =  model.par.m_initial
 
+        par = model.par
+        par.phi = np.array([par.phi_high, par.phi_low,  par.phi_high, par.phi_low])
+
     
 
 ##  Extremely ambitious estimation thing :))))
@@ -114,7 +117,6 @@ def criterion_transfer(par_est, phi_high, data,model,weighting_matrix="I"):
     setattr(model.par, "dist", par_est)
     setattr(model.par, "phi_high", phi_high)
     #print(par_est)
-
     #model.set_grids()
     model.solve_study()
 
