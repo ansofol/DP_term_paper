@@ -4,8 +4,6 @@ from types import SimpleNamespace
 from  project_code import tools
 from project_code.DC_EGM import EGM_DC
 import project_code.EGM as EGM
-
-
 from project_code.auxiliary_funcs import *
 
 class Model():
@@ -16,13 +14,16 @@ class Model():
         self.sim = SimpleNamespace()
 
     def setup(self):
+        """
+        Begins setup
+            - Sets model parameters
+            - Sets parameters for solution grids and simulation
+        """
 
         par = self.par
-
         par.easy_par = False # set parameters so last period is analytically solvable
 
         # types
-        # there are four types :)
         par.Ntypes = 4
 
         # cognitive types
@@ -33,7 +34,6 @@ class Model():
         par.phi_high = 5
         par.phi_low = 0.5
 
-
         # preferences
         par.rho = 1.5 # CRRA coefficient
         par.nu = 3 # inverse frisch
@@ -41,8 +41,7 @@ class Model():
         par.vartheta = 0.0415
         par.kappa = 1
         
-
-        # Extreme value type one distribution 
+        # scale of extreme value type one distribution 
         par.sigma_taste = 1
 
         # education
@@ -62,10 +61,7 @@ class Model():
         par.a_max = 1000
         par.Na = 200
         par.Ba = 10
-
         par.neps = 5
-
-
 
         # Simulation 
         par.N = 10_000 # Number of individuals to simulate 
@@ -75,10 +71,16 @@ class Model():
         par.dist = [0.25, 0.25, 0.25, 0.25]
 
         #Estimation 
-        par.Ns = 5
+        par.Ns = 10
 
 
     def set_grids(self):
+        """
+        Completes setup and sets grids:
+            - Type and state grids that depend on parameters specified in self.setup
+            - Initiates solution grids
+            - Initiates simulation grids
+        """
         
         par = self.par
         sol = self.sol
@@ -93,7 +95,6 @@ class Model():
             par.nu = 1 
 
         #### grids ###
-
         # Types
         par.theta = np.array([par.theta_high, par.theta_high, par.theta_low, par.theta_low])
         par.phi = np.array([par.phi_high, par.phi_low, par.phi_high, par.phi_low])
@@ -104,8 +105,6 @@ class Model():
         #### education ####
         par.S_grid = np.arange(par.Smax+1)
         par.lambda_vec = - tools.nonlinspace(-par.lambda_max, 0 , par.Smax+1, 1.03)
-
-        #par.lambda_vec = np.append(0,par.lambda_vec)
         par.lambda_vec = np.sort(par.lambda_vec)
 
         #### productivity shocks ####
@@ -137,23 +136,30 @@ class Model():
         par.random.seed(1687) # Simulation seed
 
     def solve(self):
+        """
+        The function solves for optimal consumption and labor supply decisions using EGM and DC-EGM algorithm.
+
+        Args:
+         None
+        Returns:
+         None, modifies self.sol
+        """
         par = self.par
         sol = self.sol
 
-        
+        # Loop over time, type, education, assets and income shocks
         for t in range(par.Tmax-1, -1, -1):
             for i_type in range(par.Ntypes):
                 for i_S, S in enumerate(par.S_grid):
-                    if t == par.Tmax-1: # solve last period one state at a time
+
+                    # Last period: solve using optimization
+                    if t == par.Tmax-1: 
                         for i_a,a in enumerate(par.a_grid):
                             for i_eps, eps in enumerate(par.eps_grid):
                                 idx =(i_type,t,1,i_S,par.Ba+i_a,i_eps)
                                 
-                                # leave no assets
                                 wage = wage_func(i_S,t,i_type,eps, par)
                                 res = self.solve_last_v(idx)
-
-                                #assert res.success
 
                                 if res.success:
                                     ell = res.x[1]
@@ -170,18 +176,16 @@ class Model():
                                     print(a)
                                     print(wage)
                                     assert res.success
-                                    # this becomes an issue if we allow for borrowing.
-                                    #we can maybe try some trouble shooting or different starting values - or we can just interpolate over the holes in the policy functions :))
                     else:
                         EGM.EGM_step(t, i_type, i_S, self) # EGM in working stage
                 if t < par.Smax:
-                    EGM_DC(i_type, t, sol, par)
+                    EGM_DC(i_type, t, sol, par) # DC_EGM in study stage
     
 
     def solve_study(self):
         ''' 
         Solves the study stage only, used to speed up estimation 
-        Requires a full solution to working
+        Requires a full solution to working stage
         '''
 
         par = self.par 
@@ -191,27 +195,134 @@ class Model():
             for i_type in range(par.Ntypes): 
                 EGM_DC(i_type,t,sol,par)
 
-
-
-
-    #####################
+    
+    
+    ########################
     # Utilities
-    #####################
+    ########################
 
-    # solve last period
     def util_work(self,c,ell):
+        """
+        The function calculates the flow utility of a given consumption and leisure inputs, based on 
+        certain parameters.
+        
+        Args:
+          c: consumption.
+          ell: labor supply.
+        
+        Returns:
+          flow utility value of given input.
+        """
         par = self.par
         return (c**(1-par.rho))/(1-par.rho) - par.vartheta*(ell**(1+par.nu))/(1+par.nu)
     
     def marginal_util(self, c):
+        """
+        Calculates marginal utility of consumption.
+
+        Args:
+         c: consumption
+
+        Returns:
+          marginal utility.
+        """
         par = self.par
         return c**-par.rho
     
     def inv_marginal_util(self, m):
+        """
+        Inverted marginal utility.
+
+        Args:
+          m: cash-on-hand
+        
+        Returns:
+          inverse marginal utility of consumption.
+        """
         par = self.par
         return m**(-1/par.rho)
     
+
+    
+    def exp_MU(self, i_type,t,i_work,i_S,a):
+        """
+        The function calculates the expected marginal utility of consumption for a given individual's type,
+        time period, work status, state assets, using Gauss-Hermite quadrature over normally distributed
+        income shocks.
+        
+        Args:
+        i_type: type index
+        t: time period
+        i_work: Indicator for being in working stage.
+        i_S: Years of education
+        a: Current period beginning of period assets.
+        
+        Returns:
+        the expected marginal utility (EMU) of consumption for a given individual type, time period, work
+        status, current state assets, and shock realization.
+        """
+       
+        par = self.par
+        sol = self.sol
+        EMU = 0
+        for ii_eps, eps in enumerate(par.eps_grid):
+            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
+            c_next_grid = sol.c[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
+            m_next = a*(1+par.r)
+            c_interp = tools.interp_linear_1d(m_next_grid, c_next_grid, m_next)
+            MU = self.marginal_util(c_interp)
+            EMU += MU*par.eps_w[ii_eps]
+        return EMU
+    
+
+    def adj_exp_MUell(self, i_type,t,i_work,i_S,a):
+        """
+        This function calculates the wage adjusted expected marginal utility of labor supply for a given
+        individual type, time period, work status, state assets.
+        
+        Args:
+          i_type: type index
+          t: time period
+          i_work: indicator for being in the working stage.
+          i_S: Years of education
+          a: Current period beginning of period assets.
+        
+        Returns:
+          the wage adjusted expected marginal utility (adj_EMU) as a float value.
+        """
+
+        par = self.par
+        sol = self.sol
+        adj_EMU = 0
+        for ii_eps, eps in enumerate(par.eps_grid):
+            wage = wage_func(i_S, t, i_type, eps, par)
+            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
+            ell_next_grid = sol.ell[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
+            m_next = a*(1+par.r)
+            ell_interp = tools.interp_linear_1d(m_next_grid, ell_next_grid, m_next)
+            MU = ell_interp**par.nu
+            adj_EMU += (MU*par.eps_w[ii_eps])/wage
+        return adj_EMU
+    
+
+    ########################
+    # Last period solution
+    ########################
+    
     def last_util(self, x, a, wage):
+        """
+        The function calculates the period T utility of consumption, leisure, and retirement savings for a 
+        given set of parameters.
+        
+        Args:
+          x: A vector containing the current consumption level and labor supply level.
+          a: current level of assets
+          wage: wage.
+        
+        Returns:
+          the utility from consumption, leisure, and retirement savings, given the current state variables
+        (x, a, wage) and the model parameters (par). 
+        """
         par = self.par
 
         c = x[0]
@@ -229,7 +340,21 @@ class Model():
 
         return  uc - dul + par.beta*par.kappa*retire
 
+
     def jac_last(self, x, a, wage):
+        """
+        The function calculates the Jacobian matrix of a two-dimensional system of equations related to
+        consumption and labor supply in the last period.
+        
+        Args:
+          x: a tuple containing the values of consumption (c) and labor supply (ell)
+          a: Beginning of state assets.
+          wage: Wage
+        
+        Returns:
+          Numpy array `jac` which contains the partial derivatives of the
+          objective function with respect to the consumption `c` and the labor supply `ell`.
+        """
         par= self.par
         c = x[0]
         ell =  x[1]
@@ -239,14 +364,28 @@ class Model():
         jac= np.array([dc, dl])
         return jac
 
-    # solve last period
-    def solve_last_v(self, idx):
 
+    def solve_last_v(self, idx):
+        """
+        This function solves for the optimal consumption and leisure choices and resulting utility given a
+        set of parameters and an index.
+        
+        Args:
+          idx: A tuple containing information about the individual and time period being solved for.
+        Specifically, it contains the individual's type, time period, education index (i_S), asset grid
+        index (i_a), and wage shock index (i_eps).
+        
+        Returns:
+          An object of type `Namespace` containing the optimal values of
+        consumption and leisure (`x`), the value of the utility function (`fun`), and a boolean indicating
+        whether the optimization was successful (`success`).
+        """
         par = self.par
         i_type,t,_,i_S,i_a,i_eps = idx
         wage = wage_func(i_S,t,i_type,par.eps_grid[i_eps], par)
         a = par.a_grid[i_a-par.Ba] #- par.Ba to adjust for bottom grid points in solution grids
 
+        # Solve analytically if possible
         if self.par.easy_par:
             c = (1/2*a + np.sqrt((0.5*a)*(0.5*a) + 2*wage*wage/par.vartheta))/2
             ell = wage/par.vartheta*1/c
@@ -258,6 +397,7 @@ class Model():
             res.fun = V
             res.success = True
 
+        # Otherwise, perform optimization
         else:        
             obj = lambda x: -self.last_util(x, a,wage)
             obj_jac = lambda x: -self.jac_last(x, a, wage)
@@ -272,38 +412,9 @@ class Model():
             res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
         return res
     
-    def exp_MU(self, i_type,t,i_work,i_S,a):
-        """
-        Expected marginal utility in period t (quadrature over epsilon shocks)
-        """
-        par = self.par
-        sol = self.sol
-        EMU = 0
-        for ii_eps, eps in enumerate(par.eps_grid):
-            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
-            c_next_grid = sol.c[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
-            m_next = a*(1+par.r)
-            c_interp = tools.interp_linear_1d(m_next_grid, c_next_grid, m_next)
-            MU = self.marginal_util(c_interp)
-            EMU += MU*par.eps_w[ii_eps]
-        return EMU
-    
-    def adj_exp_MUell(self, i_type,t,i_work,i_S,a):
-        """
-        Expected marginal utility in period t (quadrature over epsilon shocks), adjusted for wage
-        """
-        par = self.par
-        sol = self.sol
-        adj_EMU = 0
-        for ii_eps, eps in enumerate(par.eps_grid):
-            wage = wage_func(i_S, t, i_type, eps, par)
-            m_next_grid = sol.m[i_type, t, 1,i_S,i_work*par.Ba:,ii_eps] # next period beginning of state assets
-            ell_next_grid = sol.ell[i_type, t,1,i_S,i_work*par.Ba:,ii_eps] # next period consumption
-            m_next = a*(1+par.r)
-            ell_interp = tools.interp_linear_1d(m_next_grid, ell_next_grid, m_next)
-            MU = ell_interp**par.nu
-            adj_EMU += (MU*par.eps_w[ii_eps])/wage
-        return adj_EMU
+
+
+
     
 
 
@@ -311,6 +422,22 @@ class Model():
     # Verification          #
     #########################
     def euler_errors(self, bc_limit = 0.002):
+        """
+        This function calculates the Euler errors for consumption and labor supply and checks the marginal
+        rate of substitution for a given set of parameters.
+        
+        Args:
+          bc_limit: The lower bound for end-of-period assets below which the budget constraint is considered
+        to be binding.
+        
+        Returns:
+          five lists: Delta_time_c, epsilon_time_c, Delta_time_ell, epsilon_time_ell, and epsilon_MRS.
+          Delta_time_c:         Average consumption Euler errors.
+          epsilon_time_c:       Average absolute relative consumption Euler errors.
+          Delta_time_ell:       Average labor Euler eurrors.
+          epsilon_time_el:      Average aboslute relative labor Euler errors.
+          epsilon_MRS:          Average MRS error.
+        """
         par = self.par
         sol = self.sol
         sim = self.sim
@@ -368,7 +495,6 @@ class Model():
                     sim.epsilon_c[index, t] = np.log10(np.abs(euler_error)/current_c[:,t])
                     
 
-
         # check MRS - holds at all times when working
         epsilon_MRS = (par.vartheta/wage_sim)*ell**par.nu - c**(-par.rho)
 
@@ -381,46 +507,4 @@ class Model():
 
         return Delta_time_c, epsilon_time_c, Delta_time_ell, epsilon_time_ell, epsilon_MRS
 
-
-
-
-    
-    # fun and games with parallelization 
-    # not really working and is also very slow
-    def solve_last_v2(self, i_type, i_S, a, eps):
-        par = self.par
-        wage = wage_func(i_S, -1, i_type, eps, par)
-
-        obj = lambda x: -self.last_util(x,a,wage)
-        obj_jac = lambda x: -self.jac_last(x,a,wage)
-
-        def bc(x):
-            c = x[0]
-            ell = x[1]
-            bc = a + wage*ell - c
-            return bc
-        constr = {'fun': bc, 'type':'ineq'}
-        res = optimize.minimize(obj, x0=(a,1/wage), method='slsqp', jac=obj_jac, constraints=constr)
-        if not res.success:
-            print(f'Did not converge at {i_type, i_S, a, eps}')
-        else:
-            return [res.x[0], res.x[1], -res.fun]
-    
-    def parallel_solve_last(self, i_type, i_S, n_jobs=2):
-        par = self.par
-
-        solver = lambda a, eps: self.solve_last_v2(i_type, i_S, a, eps)
-
-        tasks = (joblib.delayed(solver)(a, eps) for a in par.a_grid for eps in par.eps_grid)
-        res = joblib.Parallel(n_jobs=n_jobs)(tasks)
-
-        c = np.array(res)[:, 0].reshape(par.neps, par.Na).T
-        ell = np.array(res)[:, 1].reshape(par.neps, par.Na).T
-        V = np.array(res)[:,2].reshape(par.neps,par.Na).T
-        return c, ell, V
-
-    
-
-def util(c,par): 
-    return c**(1-par.rho)/(1-par.rho)
 

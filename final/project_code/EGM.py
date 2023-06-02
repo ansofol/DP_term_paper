@@ -85,12 +85,12 @@ def ell_from_FOC(c, wage, par):
     """
     Computes labor supply as a function of consumption based on the intratemporal FOC.
     Args:
-     c: consumption
-     wage: wage
-     par: object containing paramters.
+      c: consumption
+      wage: wage
+      par: object containing paramters.
 
     Returns:
-     ell: labor supply
+      ell: labor supply
     """
     ell = ((wage/par.vartheta)*c**-par.rho)**(1/par.nu)
     return ell
