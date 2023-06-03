@@ -7,7 +7,7 @@ Term Paper in Dynamic Programming, spring 2023
 ## Dependancies
 Apart from the standard Anaconda package, the following installations are required to run the code:
 
-* pip install line_profiler
+`pip install line_profiler`
 
 ## Folder contents
 Results for the project are produced in the notebooks in this folder. 
