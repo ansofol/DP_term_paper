@@ -1,6 +1,7 @@
 # Skills, Education, and Family Background: Solving a Dynamic Life Cycle Model of Education Choice
 
 Mathias Koawlczyk Hansen and Annasofie Marckstrøm Olesen
+
 Term Paper in Dynamic Programming, spring 2023
 
 ## Dependancies
